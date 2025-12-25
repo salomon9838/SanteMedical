@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY
 # -------------------------
 # Utilisation de .get() pour éviter le plantage lors du build si la variable est absente
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-key-for-build')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'ta-secret-key-tres-longue-ici')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'sante',
 ]
 
-# -------------------------
+# ------------------------
 # MIDDLEWARE
 # -------------------------
 MIDDLEWARE = [
