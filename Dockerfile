@@ -19,7 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Collecter les fichiers statiques
+ENV SECRET_KEY="build-key-temporary"
+
 RUN python manage.py collectstatic --noinput
 
 # Lancer l'application avec Gunicorn (Vérifiez bien que le nom est 'propri')
 CMD ["gunicorn", "propri.wsgi:application", "--bind", "0.0.0.0:8000"]
+
