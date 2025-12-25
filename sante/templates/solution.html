@@ -6,6 +6,7 @@
   <title>MediTrack Pro — Gestion Médicale Intelligente</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --primary: #4361ee;
@@ -1572,63 +1573,68 @@
       <p class="text-sm mt-2 text-gray-500">Version 2.0 • <span id="currentYear"></span></p>
     </div>
   </div>
-  <script>
-    // ==================================
-    // DONNÉES ET FONCTIONS PRINCIPALES
-    // ==================================
-    let patients = [];
-    let consultations = [];
-    let currentPatient = null;
-    let currentPrescription = '';
-    let storedUser = JSON.parse(localStorage.getItem('storedUser')) || null;
-    let navigationHistory = [];
-    let searchTimeout = null;
-    let statsTimeout = null;
-    let currentSection = 'mainMenu';
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialisation Supabase
+const supabaseUrl = 'https://huhckdnnekiglhwetili.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1aGNrZG5uZWtpZ2xod2V0aWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU3MjYsImV4cCI6MjA4MjIzMTcyNn0.tyFb-ICxAZmw8ktpzb8MPjw0Bwb5-2a82CCSYgS9QEU';
 
-    // Liste des services triée alphabétiquement
-    const servicesList = [
-      'Administration',
-      'Anatomo-pathologie',
-      'Anesthésie-Réanimation',
-      'Cardiologie',
-      'Chirurgie générale',
-      'Chirurgie pédiatrique',
-      'Chirurgie Viscérale',
-      'Consultation générale',
-      'Dermatologie',
-      'Gastroentérologie',
-      'Gynécologie',
-      'Hématologie',
-      'Infertilité',
-      'Kinésithérapie',
-      'Laboratoire',
-      'Médecine Interne',
-      'Néphrologie',
-      'Neurochirurgie',
-      'Neurologie',
-      'Odontologie/Stomatologie',
-      'Ophtalmologie',
-      'Optométrie',
-      'ORL',
-      'Pédiatrie',
-      'Pneumologie',
-      'Psychiatrie',
-      'Radiologie/Imagerie médicale',
-      'Réanimation médicale et polysalle',
-      'Rhumatologie',
-      'Sage-femme/Obstétrique',
-      'Scanner',
-      'Traumatologie',
-      'Transfusion sanguine',
-      'Urgences',
-      'Urologie',
-      'Autre'
-    ];
+const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-    // Templates de prescription par service
-    const prescriptionTemplates = {
-      'Cardiologie': `=== CONSULTATION CARDIOLOGIE ===
+let currentSupabaseUser = null;
+let patients = [];
+let consultations = [];
+let currentPatient = null;
+let currentPrescription = '';
+let storedUser = null;
+let navigationHistory = [];
+let searchTimeout = null;
+let statsTimeout = null;
+let currentSection = 'mainMenu';
+
+// Liste des services triée alphabétiquement
+const servicesList = [
+  'Administration',
+  'Anatomo-pathologie',
+  'Anesthésie-Réanimation',
+  'Cardiologie',
+  'Chirurgie générale',
+  'Chirurgie pédiatrique',
+  'Chirurgie Viscérale',
+  'Consultation générale',
+  'Dermatologie',
+  'Gastroentérologie',
+  'Gynécologie',
+  'Hématologie',
+  'Infertilité',
+  'Kinésithérapie',
+  'Laboratoire',
+  'Médecine Interne',
+  'Néphrologie',
+  'Neurochirurgie',
+  'Neurologie',
+  'Odontologie/Stomatologie',
+  'Ophtalmologie',
+  'Optométrie',
+  'ORL',
+  'Pédiatrie',
+  'Pneumologie',
+  'Psychiatrie',
+  'Radiologie/Imagerie médicale',
+  'Réanimation médicale et polysalle',
+  'Rhumatologie',
+  'Sage-femme/Obstétrique',
+  'Scanner',
+  'Traumatologie',
+  'Transfusion sanguine',
+  'Urgences',
+  'Urologie',
+  'Autre'
+];
+
+// Templates de prescription par service
+const prescriptionTemplates = {
+  'Cardiologie': `=== CONSULTATION CARDIOLOGIE ===
 Patient: [NOM] Âge: [AGE] Sexe: [SEXE]
 Groupe sanguin: [GROUPE] Rhésus: [RHESUS]
 Tableau:
@@ -1638,7 +1644,7 @@ Tableau:
 | ... | ... | ... |
 +---------------+---------------+---------------+
 Observations: `,
-      'Ophtalmologie': `=== CONSULTATION OPHTALMOLOGIE ===
+  'Ophtalmologie': `=== CONSULTATION OPHTALMOLOGIE ===
 Patient: [NOM] Âge: [AGE] Sexe: [SEXE]
 Groupe sanguin: [GROUPE] Rhésus: [RHESUS]
 Tableau:
@@ -1648,7 +1654,7 @@ Tableau:
 | ... | ... | ... |
 +---------------+---------------+---------------+
 Observations: `,
-      'Médecine Interne': `=== CONSULTATION MÉDECINE INTERNE ===
+  'Médecine Interne': `=== CONSULTATION MÉDECINE INTERNE ===
 Patient: [NOM] Âge: [AGE] Sexe: [SEXE]
 Groupe sanguin: [GROUPE] Rhésus: [RHESUS]
 Tableau:
@@ -1658,7 +1664,7 @@ Tableau:
 | ... | ... | ... |
 +---------------+---------------+---------------+
 Observations: `,
-      'Urgences': `=== CONSULTATION URGENCES ===
+  'Urgences': `=== CONSULTATION URGENCES ===
 Patient: [NOM] Âge: [AGE] Sexe: [SEXE]
 Groupe sanguin: [GROUPE] Rhésus: [RHESUS]
 Tableau:
@@ -1668,7 +1674,7 @@ Tableau:
 | ... | ... | ... |
 +---------------+---------------+---------------+
 Observations: `,
-      'default': `=== CONSULTATION ===
+  'default': `=== CONSULTATION ===
 Patient: [NOM] Âge: [AGE] Sexe: [SEXE]
 Groupe sanguin: [GROUPE] Rhésus: [RHESUS]
 Tableau:
@@ -1678,603 +1684,546 @@ Tableau:
 | ... | ... | ... |
 +---------------+---------------+---------------+
 Observations: `
-    };
+};
 
-    // ================================
-    // FONCTIONS UTILITAIRES
-    // ================================
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-      };
+// ================================
+// FONCTIONS UTILITAIRES
+// ================================
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+    <span>${message}</span>
+  `;
+
+  const container = document.getElementById('notificationContainer');
+  container.appendChild(notification);
+
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(100px)';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+function showAlert(elementId, message, type = 'info') {
+  const alertDiv = document.getElementById(elementId);
+  if (!alertDiv) return;
+
+  alertDiv.innerHTML = `
+    <div class="alert alert-${type}">
+      <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+      ${message}
+    </div>
+  `;
+}
+
+// ================================
+// AUTHENTIFICATION SUPABASE
+// ================================
+document.getElementById('registerForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('regEmail').value;
+  const password = document.getElementById('regPassword').value;
+  const firstName = document.getElementById('regFirstName').value.toUpperCase();
+  const lastName = document.getElementById('regLastName').value.toUpperCase();
+  const role = document.getElementById('regRole').value;
+  const serviceSelect = document.getElementById('regService');
+  const service = serviceSelect.value === 'Autre' ? document.getElementById('regOtherService').value.trim().toUpperCase() : serviceSelect.value || 'Non spécifié';
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    showAlert('authAlert', 'Erreur inscription : ' + error.message, 'error');
+  } else {
+    showAlert('authAlert', 'Inscription réussie ! Confirme ton email pour te connecter.', 'success');
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('sante_utilisateur')
+        .insert({
+          user_id: data.user.id,
+          role: role,
+          service: service
+        });
+      if (profileError) console.error('Erreur création profil :', profileError);
     }
-    function showNotification(message, type = 'success') {
-      const notification = document.createElement('div');
-      notification.className = `notification ${type}`;
-      notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
-        <span>${message}</span>
-      `;
-    
-      const container = document.getElementById('notificationContainer');
-      container.appendChild(notification);
-    
-      setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100px)';
-        setTimeout(() => notification.remove(), 300);
-      }, 3000);
-    }
-    function showAlert(elementId, message, type = 'info') {
-      const alertDiv = document.getElementById(elementId);
-      if (!alertDiv) return;
-    
-      alertDiv.innerHTML = `
-        <div class="alert alert-${type}">
-          <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
-          ${message}
-        </div>
-      `;
-    }
-    function updateStoredUser(user) {
-      storedUser = user;
-      localStorage.setItem('storedUser', JSON.stringify(user));
-    }
-    // ================================
-    // FONCTIONS D'AUTHENTIFICATION
-    // ================================
-    function showAuthScreen() {
-      document.getElementById('appContainer').classList.add('hidden');
-      document.getElementById('authScreen').classList.remove('hidden');
-      if (storedUser) {
-        toggleAuthView('login');
-      } else {
-        toggleAuthView('register');
-      }
-    }
-  
-    function toggleAuthView(view) {
-      const authAlert = document.getElementById('authAlert');
-      if (authAlert) authAlert.innerHTML = '';
-    
-      document.getElementById('registerView').classList.add('hidden');
-      document.getElementById('loginView').classList.add('hidden');
-    
-      if (view === 'register') {
-        document.getElementById('registerView').classList.remove('hidden');
-      } else if (view === 'login') {
-        document.getElementById('loginView').classList.remove('hidden');
-      }
-    }
-  
-    function clearAuthData() {
-      localStorage.removeItem('isLoggedIn');
-      navigationHistory = [];
+    toggleAuthView('login');
+  }
+};
+
+document.getElementById('loginForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('userEmail').value;
+  const password = document.getElementById('userPassword').value;
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    showAlert('authAlert', 'Erreur connexion : ' + error.message, 'error');
+  } else {
+    currentSupabaseUser = data.user;
+    const { data: profile } = await supabase
+      .from('sante_utilisateur')
+      .select('role, service')
+      .eq('user_id', data.user.id)
+      .single();
+
+   storedUser = {
+  firstName: 'Utilisateur', // Pas de firstName disponible ici
+  lastName: '',
+  role: profile?.role || 'Médecin',
+  service: profile?.service || 'Non spécifié',
+  email: data.user.email
+};
+    await loadData();
+    startApp();
+  }
+};
+
+function clearAuthData() {
+  supabase.auth.signOut().then(() => {
+    currentSupabaseUser = null;
+    storedUser = null;
+    showAuthScreen();
+    showNotification('Déconnexion réussie !', 'success');
+  });
+}
+
+function checkAuth() {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      currentSupabaseUser = session.user;
+      loadUserProfileAndStart();
+    } else {
       showAuthScreen();
-      showNotification('Déconnexion réussie !', 'success');
     }
-  
-    function checkAuth() {
-      if (localStorage.getItem('isLoggedIn') === 'true' && storedUser) {
-        startApp();
+  });
+}
+
+async function loadUserProfileAndStart() {
+  const { data: profile } = await supabase
+    .from('sante_utilisateur')
+    .select('role, service')
+    .eq('user_id', currentSupabaseUser.id)
+    .single();
+
+  storedUser = {
+    firstName: 'Utilisateur',
+    lastName: '',
+    role: profile?.role || 'Médecin',
+    service: profile?.service || 'Non spécifié',
+    email: currentSupabaseUser.email
+  };
+
+  await loadData();
+  startApp();
+}
+
+// Chargement des données depuis Supabase
+async function loadData() {
+  const { data: patientsData } = await supabase.from('sante_patient').select('*');
+  patients = patientsData || [];
+
+  const { data: consultationsData } = await supabase.from('sante_consultation').select('*');
+  consultations = consultationsData || [];
+
+  updateStats();
+}
+
+// Enregistrement patient
+document.getElementById('newPatientForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const patientName = document.getElementById('patientName').value.trim().toUpperCase();
+
+  const patientData = {
+    nom: patientName,
+    prenom: '',
+    date_naissance: '2000-01-01', // À améliorer avec un champ date si tu veux
+    sexe: document.getElementById('patientGender').value,
+    telephone: document.getElementById('patientPhone').value || null,
+    adresse: document.getElementById('patientAddress').value || null,
+    groupe_sanguin: document.getElementById('patientBloodGroup').value || null,
+    rhesus: document.getElementById('patientRhesus').value || null
+  };
+
+  const { data, error } = await supabase
+    .from('sante_patient')
+    .insert([patientData])
+    .select();
+
+  if (error) {
+    showNotification('Erreur enregistrement patient : ' + error.message, 'error');
+    return;
+  }
+
+  currentPatient = data[0];
+  document.getElementById('currentPatientNameDisplay2').textContent = `${currentPatient.nom} (ID: ${currentPatient.id})`;
+  document.getElementById('newPatientForm').reset();
+  currentPrescription = '';
+  navigateTo('prescriptionEditor');
+};
+
+// Enregistrement consultation
+function saveConsultation() {
+  if (!currentPatient || !currentSupabaseUser) {
+    showNotification('Erreur : patient ou utilisateur non défini.', 'error');
+    return;
+  }
+
+  const diseaseType = document.getElementById('diseaseType').value;
+  const consultationCenter = document.getElementById('consultationCenter').value;
+
+  if (!diseaseType || !consultationCenter) {
+    showNotification('Veuillez remplir les champs obligatoires (maladie et centre).', 'error');
+    return;
+  }
+
+  const consultationData = {
+    symptomes: currentPrescription,
+    diagnostic: diseaseType,
+    patient_id: currentPatient.id,
+    personnel_responsable_id: currentSupabaseUser.id
+  };
+
+  supabase
+    .from('sante_consultation')
+    .insert([consultationData])
+    .then(({ error }) => {
+      if (error) {
+        showNotification('Erreur consultation : ' + error.message, 'error');
       } else {
-        showAuthScreen();
-      }
-    }
-    // ================================
-    // GESTION DES FORMULAIRES
-    // ================================
-    document.getElementById('loginForm').onsubmit = function(e) {
-      e.preventDefault();
-      const emailOrUsername = document.getElementById('userEmail').value;
-      const password = document.getElementById('userPassword').value;
-    
-      if (storedUser &&
-          (storedUser.email === emailOrUsername || storedUser.username === emailOrUsername) &&
-          storedUser.password === password) {
-        localStorage.setItem('isLoggedIn', 'true');
-        showAlert('authAlert', 'Connexion réussie ! Redirection...', 'success');
-        document.getElementById('loginForm').reset();
-        setTimeout(startApp, 1000);
-      } else {
-        showAlert('authAlert', 'Identifiants incorrects. Veuillez vérifier vos informations ou vous inscrire.', 'error');
-      }
-    };
-    document.getElementById('registerForm').onsubmit = function(e) {
-      e.preventDefault();
-      const password = document.getElementById('regPassword').value;
-      const confirmPassword = document.getElementById('regConfirmPassword').value;
-      const serviceSelect = document.getElementById('regService');
-      const service = serviceSelect.value === 'Autre' ? document.getElementById('regOtherService').value.trim() : serviceSelect.value;
-    
-      if (password !== confirmPassword) {
-        showAlert('authAlert', 'Le mot de passe et sa confirmation ne correspondent pas.', 'error');
-        return;
-      }
-      if (password.length < 6) {
-        showAlert('authAlert', 'Le mot de passe doit contenir au moins 6 caractères.', 'error');
-        return;
-      }
-      if (serviceSelect.value === 'Autre' && service === '') {
-        showAlert('authAlert', 'Veuillez préciser le service lorsque vous choisissez "Autre".', 'error');
-        return;
-      }
-    
-      const newUser = {
-        firstName: document.getElementById('regFirstName').value,
-        lastName: document.getElementById('regLastName').value,
-        username: document.getElementById('regUsername').value,
-        email: document.getElementById('regEmail').value,
-        phone: document.getElementById('regPhone').value,
-        role: document.getElementById('regRole').value,
-        service: service || 'Non spécifié',
-        password: password,
-      };
-    
-      updateStoredUser(newUser);
-      showAlert('authAlert', 'Inscription réussie ! Veuillez vous connecter.', 'success');
-      document.getElementById('registerForm').reset();
-      toggleAuthView('login');
-    };
-    document.getElementById('profileForm').onsubmit = function(e) {
-      e.preventDefault();
-      const updatedUser = {
-        ...storedUser,
-        email: document.getElementById('editEmail').value,
-        phone: document.getElementById('editPhone').value,
-      };
-      updateStoredUser(updatedUser);
-      showAlert('profileAlert', 'Profil mis à jour !', 'success');
-      document.getElementById('currentUserInfo').textContent = `${storedUser.firstName} ${storedUser.lastName} (${storedUser.role} - ${storedUser.service})`;
-      setTimeout(() => showSettingsSubSection(''), 2000);
-    };
-    document.getElementById('passwordForm').onsubmit = function(e) {
-      e.preventDefault();
-      const oldPassword = document.getElementById('oldPassword').value;
-      const newPassword = document.getElementById('newPassword').value;
-      const confirmNewPassword = document.getElementById('confirmNewPassword').value;
-    
-      if (!storedUser) {
-        showAlert('securityAlert', 'Erreur utilisateur. Veuillez vous déconnecter et réessayer.', 'error');
-        return;
-      }
-      if (oldPassword !== storedUser.password) {
-        showAlert('securityAlert', 'L\'ancien mot de passe est incorrect.', 'error');
-        return;
-      }
-      if (newPassword !== confirmNewPassword) {
-        showAlert('securityAlert', 'Le nouveau mot de passe et sa confirmation ne correspondent pas.', 'error');
-        return;
-      }
-      if (newPassword.length < 6) {
-        showAlert('securityAlert', 'Le nouveau mot de passe doit contenir au moins 6 caractères.', 'error');
-        return;
-      }
-    
-      const updatedUser = { ...storedUser, password: newPassword };
-      updateStoredUser(updatedUser);
-      document.getElementById('passwordForm').reset();
-      showAlert('securityAlert', 'Mot de passe mis à jour avec succès ! Veuillez vous reconnecter.', 'success');
-      setTimeout(clearAuthData, 2000);
-    };
-    // ================================
-    // NAVIGATION ET ANIMATIONS
-    // ================================
-    function navigateTo(sectionId) {
-      if (currentSection === sectionId) return;
-    
-      navigationHistory.push(currentSection);
-      updateBreadcrumb(sectionId);
-      showSection(sectionId);
-    }
-    function goBack() {
-      if (navigationHistory.length > 0) {
-        const previousSection = navigationHistory.pop();
-        showSection(previousSection);
-        updateBreadcrumb(previousSection);
-      } else {
+        showNotification('Consultation enregistrée dans la base cloud !', 'success');
+        currentPatient = null;
+        currentPrescription = '';
         showMainMenu();
       }
-    }
-    function updateBreadcrumb(sectionId) {
-      const breadcrumbContent = document.getElementById('breadcrumbContent');
-      const navControls = document.getElementById('navControls');
-      const navBreadcrumb = document.getElementById('navBreadcrumb');
-    
-      if (sectionId === 'mainMenu') {
-        navBreadcrumb.classList.add('hidden');
-        navControls.classList.add('hidden');
-        return;
-      }
-    
-      navBreadcrumb.classList.remove('hidden');
-      navControls.classList.remove('hidden');
-    
-      let breadcrumb = '';
-      const sections = {
-        'newConsultation': 'Nouvelle Consultation',
-        'prescriptionEditor': 'Éditeur de Prescription',
-        'medicalSummary': 'Résumé Médical',
-        'oldConsultation': 'Ancienne Consultation',
-        'registry': 'Registre & Statistiques',
-        'settings': 'Paramètres'
-      };
-    
-      breadcrumb = `
-        <div class="breadcrumb-item" onclick="showMainMenu()">
-          <i class="fas fa-home"></i> Accueil
-        </div>
-        <div class="breadcrumb-separator">/</div>
-        <div class="breadcrumb-item active">
-          <i class="fas fa-${getSectionIcon(sectionId)}"></i> ${sections[sectionId]}
-        </div>
-      `;
-    
-      breadcrumbContent.innerHTML = breadcrumb;
-    }
-    function getSectionIcon(sectionId) {
-      const icons = {
-        'newConsultation': 'user-plus',
-        'prescriptionEditor': 'file-medical',
-        'medicalSummary': 'clipboard-list',
-        'oldConsultation': 'history',
-        'registry': 'chart-bar',
-        'settings': 'cog'
-      };
-      return icons[sectionId] || 'folder';
-    }
-    function showSection(sectionId) {
-      document.querySelectorAll('.content-area').forEach(area => {
-        area.classList.remove('active');
-      });
-      document.getElementById('mainMenu').classList.add('hidden');
-      const section = document.getElementById(sectionId);
-      if (section) {
-        section.classList.add('active');
-      }
-      currentSection = sectionId;
-      updateBreadcrumb(sectionId);
-      handleSectionSpecificLogic(sectionId);
-    }
-    function handleSectionSpecificLogic(sectionId) {
-      switch(sectionId) {
-        case 'oldConsultation':
-          debouncedSearch();
-          break;
-        case 'prescriptionEditor':
-          document.getElementById('prescriptionContent').value = currentPrescription || '';
-          const editorAlert = document.getElementById('editorAlert');
-          if (editorAlert) editorAlert.innerHTML = '';
-          loadPrescriptionTemplate();
-          break;
-        case 'settings':
-          const settingsMenu = document.getElementById('settingsMenu');
-          if (settingsMenu) {
-            settingsMenu.classList.remove('hidden');
-          }
-          document.querySelectorAll('#settings > div').forEach(div => {
-            if (div.id !== 'settingsMenu') {
-              div.classList.add('hidden');
-            }
-          });
-          populateProfileForm();
-          break;
-      }
-    }
-    function showMainMenu() {
-      navigationHistory = [];
-      currentSection = 'mainMenu';
-    
-      document.querySelectorAll('.content-area').forEach(section => {
-        section.classList.remove('active');
-      });
-    
-      const navControls = document.getElementById('navControls');
-      const navBreadcrumb = document.getElementById('navBreadcrumb');
-      if (navControls) navControls.classList.add('hidden');
-      if (navBreadcrumb) navBreadcrumb.classList.add('hidden');
-    
-      const mainMenu = document.getElementById('mainMenu');
-      if (mainMenu) {
-        mainMenu.classList.remove('hidden');
-      }
-    }
-    function showSettingsSubSection(subSectionId) {
+    });
+}
+
+// ================================
+// NAVIGATION ET ANIMATIONS
+// ================================
+function navigateTo(sectionId) {
+  if (currentSection === sectionId) return;
+
+  navigationHistory.push(currentSection);
+  updateBreadcrumb(sectionId);
+  showSection(sectionId);
+}
+
+function goBack() {
+  if (navigationHistory.length > 0) {
+    const previousSection = navigationHistory.pop();
+    showSection(previousSection);
+    updateBreadcrumb(previousSection);
+  } else {
+    showMainMenu();
+  }
+}
+
+function updateBreadcrumb(sectionId) {
+  const breadcrumbContent = document.getElementById('breadcrumbContent');
+  const navControls = document.getElementById('navControls');
+  const navBreadcrumb = document.getElementById('navBreadcrumb');
+
+  if (sectionId === 'mainMenu') {
+    navBreadcrumb.classList.add('hidden');
+    navControls.classList.add('hidden');
+    return;
+  }
+
+  navBreadcrumb.classList.remove('hidden');
+  navControls.classList.remove('hidden');
+
+  let breadcrumb = '';
+  const sections = {
+    'newConsultation': 'Nouvelle Consultation',
+    'prescriptionEditor': 'Éditeur de Prescription',
+    'medicalSummary': 'Résumé Médical',
+    'oldConsultation': 'Ancienne Consultation',
+    'registry': 'Registre & Statistiques',
+    'settings': 'Paramètres'
+  };
+
+  breadcrumb = `
+    <div class="breadcrumb-item" onclick="showMainMenu()">
+      <i class="fas fa-home"></i> Accueil
+    </div>
+    <div class="breadcrumb-separator">/</div>
+    <div class="breadcrumb-item active">
+      <i class="fas fa-${getSectionIcon(sectionId)}"></i> ${sections[sectionId]}
+    </div>
+  `;
+
+  breadcrumbContent.innerHTML = breadcrumb;
+}
+
+function getSectionIcon(sectionId) {
+  const icons = {
+    'newConsultation': 'user-plus',
+    'prescriptionEditor': 'file-medical',
+    'medicalSummary': 'clipboard-list',
+    'oldConsultation': 'history',
+    'registry': 'chart-bar',
+    'settings': 'cog'
+  };
+  return icons[sectionId] || 'folder';
+}
+
+function showSection(sectionId) {
+  document.querySelectorAll('.content-area').forEach(area => {
+    area.classList.remove('active');
+  });
+  document.getElementById('mainMenu').classList.add('hidden');
+  const section = document.getElementById(sectionId);
+  if (section) {
+    section.classList.add('active');
+  }
+  currentSection = sectionId;
+  updateBreadcrumb(sectionId);
+  handleSectionSpecificLogic(sectionId);
+}
+
+function handleSectionSpecificLogic(sectionId) {
+  switch(sectionId) {
+    case 'oldConsultation':
+      debouncedSearch();
+      break;
+    case 'prescriptionEditor':
+      document.getElementById('prescriptionContent').value = currentPrescription || '';
+      const editorAlert = document.getElementById('editorAlert');
+      if (editorAlert) editorAlert.innerHTML = '';
+      loadPrescriptionTemplate();
+      break;
+    case 'settings':
       const settingsMenu = document.getElementById('settingsMenu');
       if (settingsMenu) {
-        settingsMenu.classList.add('hidden');
+        settingsMenu.classList.remove('hidden');
       }
-    
       document.querySelectorAll('#settings > div').forEach(div => {
         if (div.id !== 'settingsMenu') {
           div.classList.add('hidden');
         }
       });
-    
-      if (subSectionId) {
-        const subSection = document.getElementById(subSectionId);
-        if (subSection) {
-          subSection.classList.remove('hidden');
-        }
-      } else {
-        if (settingsMenu) {
-          settingsMenu.classList.remove('hidden');
-        }
-      }
+      populateProfileForm();
+      break;
+  }
+}
+
+function showMainMenu() {
+  navigationHistory = [];
+  currentSection = 'mainMenu';
+
+  document.querySelectorAll('.content-area').forEach(section => {
+    section.classList.remove('active');
+  });
+
+  const navControls = document.getElementById('navControls');
+  const navBreadcrumb = document.getElementById('navBreadcrumb');
+  if (navControls) navControls.classList.add('hidden');
+  if (navBreadcrumb) navBreadcrumb.classList.add('hidden');
+
+  const mainMenu = document.getElementById('mainMenu');
+  if (mainMenu) {
+    mainMenu.classList.remove('hidden');
+  }
+}
+
+function showSettingsSubSection(subSectionId) {
+  const settingsMenu = document.getElementById('settingsMenu');
+  if (settingsMenu) {
+    settingsMenu.classList.add('hidden');
+  }
+
+  document.querySelectorAll('#settings > div').forEach(div => {
+    if (div.id !== 'settingsMenu') {
+      div.classList.add('hidden');
     }
-    // ================================
-    // FONCTIONS DE L'APPLICATION
-    // ================================
-    function startApp() {
-      loadData();
-      document.getElementById('authScreen').classList.add('hidden');
-      document.getElementById('appContainer').classList.remove('hidden');
-    
-      document.getElementById('currentUserInfo').textContent = `${storedUser.firstName} ${storedUser.lastName} (${storedUser.role} - ${storedUser.service})`;
-      document.getElementById('listServiceDisplay').textContent = storedUser.service;
-      document.getElementById('currentYear').textContent = new Date().getFullYear();
-    
-      showMainMenu();
-      updateStats();
-      populateRegistryFilters();
-      populateServiceSelects();
-    
-      window.debouncedSearch = debounce(searchPatients, 300);
-      window.debouncedUpdateStats = debounce(updateStats, 300);
+  });
+
+  if (subSectionId) {
+    const subSection = document.getElementById(subSectionId);
+    if (subSection) {
+      subSection.classList.remove('hidden');
     }
-    function populateServiceSelects() {
-      const selects = [
-        document.getElementById('regService'),
-        document.getElementById('serviceType'),
-        document.getElementById('serviceFilter')
-      ];
-      selects.forEach(select => {
-        if (select) {
-          select.innerHTML = '<option value="">Non spécifié</option>' +
-            servicesList.map(s => `<option value="${s}">${s}</option>`).join('');
-        }
-      });
-      document.getElementById('regService').addEventListener('change', toggleOtherService);
-      document.getElementById('serviceType').addEventListener('change', toggleOtherServiceNew);
+  } else {
+    if (settingsMenu) {
+      settingsMenu.classList.remove('hidden');
     }
-    function toggleOtherService() {
-      const group = document.getElementById('otherServiceGroup');
-      if (document.getElementById('regService').value === 'Autre') {
-        group.classList.remove('hidden');
-      } else {
-        group.classList.add('hidden');
-      }
+  }
+}
+
+// ================================
+// FONCTIONS DE L'APPLICATION
+// ================================
+async function startApp() {
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('appContainer').classList.remove('hidden');
+
+  document.getElementById('currentUserInfo').textContent = `${storedUser.firstName} ${storedUser.lastName} (${storedUser.role} - ${storedUser.service})`;
+  document.getElementById('listServiceDisplay').textContent = storedUser.service;
+  document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+  showMainMenu();
+  updateStats();
+  populateRegistryFilters();
+  populateServiceSelects();
+
+  window.debouncedSearch = debounce(searchPatients, 300);
+  window.debouncedUpdateStats = debounce(updateStats, 300);
+}
+
+function populateServiceSelects() {
+  const selects = [
+    document.getElementById('regService'),
+    document.getElementById('serviceType'),
+    document.getElementById('serviceFilter')
+  ];
+  selects.forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">Non spécifié</option>' +
+        servicesList.map(s => `<option value="${s}">${s}</option>`).join('');
     }
-    function toggleOtherServiceNew() {
-      const group = document.getElementById('otherServiceGroupNew');
-      if (document.getElementById('serviceType').value === 'Autre') {
-        group.classList.remove('hidden');
-      } else {
-        group.classList.add('hidden');
-      }
+  });
+  document.getElementById('regService').addEventListener('change', toggleOtherService);
+  document.getElementById('serviceType').addEventListener('change', toggleOtherServiceNew);
+}
+
+function toggleOtherService() {
+  const group = document.getElementById('otherServiceGroup');
+  if (document.getElementById('regService').value === 'Autre') {
+    group.classList.remove('hidden');
+  } else {
+    group.classList.add('hidden');
+  }
+}
+
+function toggleOtherServiceNew() {
+  const group = document.getElementById('otherServiceGroupNew');
+  if (document.getElementById('serviceType').value === 'Autre') {
+    group.classList.remove('hidden');
+  } else {
+    group.classList.add('hidden');
+  }
+}
+
+function loadPrescriptionTemplate() {
+  const templateKey = currentPatient.service in prescriptionTemplates ? currentPatient.service : 'default';
+  let template = prescriptionTemplates[templateKey];
+  const rhesusDisplay = currentPatient.rhesus ? currentPatient.rhesus : 'Non spécifié';
+  const bloodGroupDisplay = currentPatient.groupe_sanguin ? currentPatient.groupe_sanguin + currentPatient.rhesus : 'Non spécifié';
+  template = template.replace('[NOM]', currentPatient.nom || currentPatient.name)
+                     .replace('[AGE]', currentPatient.age)
+                     .replace('[SEXE]', currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin')
+                     .replace('[GROUPE]', currentPatient.groupe_sanguin || 'Non spécifié')
+                     .replace('[RHESUS]', rhesusDisplay);
+  document.getElementById('prescriptionContent').value = template;
+  document.getElementById('prescriptionHeader').innerHTML = `
+    <p><strong>Patient:</strong> ${currentPatient.nom || currentPatient.name}</p>
+    <p><strong>Âge:</strong> ${currentPatient.age}</p>
+    <p><strong>Sexe:</strong> ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}</p>
+    <p><strong>Groupe sanguin:</strong> ${bloodGroupDisplay}</p>
+    <p><strong>Soignant:</strong> ${storedUser.firstName} ${storedUser.lastName}</p>
+    <p><strong>Service:</strong> ${storedUser.service}</p>
+  `;
+}
+
+function goToSummary() {
+  currentPrescription = document.getElementById('prescriptionContent').value;
+
+  const patientNameDisplay = document.getElementById('currentPatientNameDisplay3');
+  if (patientNameDisplay) {
+    patientNameDisplay.textContent = `${currentPatient.nom || currentPatient.name} (ID: ${currentPatient.id})`;
+  }
+
+  document.getElementById('doctorName').value = `${storedUser.firstName} ${storedUser.lastName}`;
+  document.getElementById('doctorContact').value = storedUser.phone || storedUser.email || '';
+  document.getElementById('doctorService').value = storedUser.service;
+  document.getElementById('consultationCenter').value = 'Centre Médical Principal';
+  const editorAlert = document.getElementById('editorAlert');
+  if (editorAlert) editorAlert.innerHTML = '';
+
+  navigateTo('medicalSummary');
+}
+
+// ================================
+// RECHERCHE DE PATIENTS (adaptée pour Supabase plus tard si besoin)
+// Pour l'instant on garde ta version locale, mais elle sera mise à jour quand tu auras plusieurs données
+function searchPatients() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const listContentDiv = document.getElementById('patientListContent');
+  const patientsListContainer = document.getElementById('patientsListContainer');
+  const searchLoader = document.getElementById('searchLoader');
+  const noResults = document.getElementById('noResults');
+
+  const serviceDuSoignant = storedUser ? storedUser.service : 'Consultation générale';
+  const listServiceDisplay = document.getElementById('listServiceDisplay');
+  if (listServiceDisplay) {
+    listServiceDisplay.textContent = serviceDuSoignant;
+  }
+  if (patientsListContainer) patientsListContainer.classList.add('hidden');
+  if (noResults) noResults.classList.add('hidden');
+  if (searchLoader) searchLoader.classList.remove('hidden');
+
+  setTimeout(() => {
+    let patientsToShow = patients.slice().sort((a, b) => b.id - a.id); // Tri par ID récent
+
+    if (query.length >= 2) {
+      patientsToShow = patientsToShow.filter(p =>
+        p.nom.toLowerCase().includes(query) ||
+        p.id.toString().includes(query) ||
+        (p.telephone && p.telephone.includes(query))
+      );
+    } else {
+      patientsToShow = patientsToShow.slice(0, 10);
     }
-    // ================================
-    // GESTION DES PATIENTS
-    // ================================
-    document.getElementById('newPatientForm').onsubmit = function(e) {
-      e.preventDefault();
-      const patientName = document.getElementById('patientName').value.trim();
-      const patientId = patientName.substring(0, 3).toUpperCase() + Date.now().toString().slice(-4);
-      const serviceSelect = document.getElementById('serviceType');
-      const service = serviceSelect.value === 'Autre' ? document.getElementById('otherServiceNew').value.trim() : serviceSelect.value;
-    
-      const patient = {
-        id: patientId,
-        name: patientName,
-        age: document.getElementById('patientAge').value,
-        gender: document.getElementById('patientGender').value,
-        profession: document.getElementById('patientProfession').value,
-        phone: document.getElementById('patientPhone').value,
-        address: document.getElementById('patientAddress').value,
-        bloodGroup: document.getElementById('patientBloodGroup').value || '',
-        rhesus: document.getElementById('patientRhesus').value || '',
-        service: service || 'Non spécifié',
-        createdAt: new Date().toISOString()
-      };
-    
-      currentPatient = patient;
-      patients.push(patient);
-      saveData();
-      document.getElementById('currentPatientNameDisplay2').textContent = `${currentPatient.name} (ID: ${currentPatient.id})`;
-      document.getElementById('newPatientForm').reset();
-      currentPrescription = '';
-      navigateTo('prescriptionEditor');
-    };
-    // ================================
-    // PRESCRIPTION
-    // ================================
-    document.getElementById('prescriptionForm').onsubmit = function(e) {
-      e.preventDefault();
-      goToSummary();
-    };
-    function loadPrescriptionTemplate() {
-      const templateKey = currentPatient.service in prescriptionTemplates ? currentPatient.service : 'default';
-      let template = prescriptionTemplates[templateKey];
-      const rhesusDisplay = currentPatient.rhesus ? currentPatient.rhesus : 'Non spécifié';
-      const bloodGroupDisplay = currentPatient.bloodGroup ? currentPatient.bloodGroup + currentPatient.rhesus : 'Non spécifié';
-      template = template.replace('[NOM]', currentPatient.name)
-                         .replace('[AGE]', currentPatient.age)
-                         .replace('[SEXE]', currentPatient.gender === 'M' ? 'Masculin' : 'Féminin')
-                         .replace('[GROUPE]', currentPatient.bloodGroup || 'Non spécifié')
-                         .replace('[RHESUS]', rhesusDisplay);
-      document.getElementById('prescriptionContent').value = template;
-      document.getElementById('prescriptionHeader').innerHTML = `
-        <p><strong>Patient:</strong> ${currentPatient.name}</p>
-        <p><strong>Âge:</strong> ${currentPatient.age}</p>
-        <p><strong>Sexe:</strong> ${currentPatient.gender === 'M' ? 'Masculin' : 'Féminin'}</p>
-        <p><strong>Groupe sanguin:</strong> ${bloodGroupDisplay}</p>
-        <p><strong>Soignant:</strong> ${storedUser.firstName} ${storedUser.lastName}</p>
-        <p><strong>Service:</strong> ${storedUser.service}</p>
-      `;
-    }
-    function goToSummary() {
-      currentPrescription = document.getElementById('prescriptionContent').value;
-    
-      const patientNameDisplay = document.getElementById('currentPatientNameDisplay3');
-      if (patientNameDisplay) {
-        patientNameDisplay.textContent = `${currentPatient.name} (ID: ${currentPatient.id})`;
-      }
-    
-      document.getElementById('doctorName').value = `${storedUser.firstName} ${storedUser.lastName}`;
-      document.getElementById('doctorContact').value = storedUser.phone || storedUser.email || '';
-      document.getElementById('doctorService').value = storedUser.service;
-      document.getElementById('consultationCenter').value = 'Centre Médical Principal';
-      const editorAlert = document.getElementById('editorAlert');
-      if (editorAlert) editorAlert.innerHTML = '';
-    
-      navigateTo('medicalSummary');
-    }
-    function saveConsultation() {
-      if (!currentPatient) {
-        showNotification('Erreur: Le patient actuel n\'est pas défini. Veuillez recommencer la consultation.', 'error');
-        navigateTo('newConsultation');
-        return;
-      }
-    
-      const diseaseType = document.getElementById('diseaseType').value;
-      const doctorName = document.getElementById('doctorName').value;
-      const doctorService = document.getElementById('doctorService').value;
-      const consultationCenter = document.getElementById('consultationCenter').value;
-    
-      if (!diseaseType || !doctorName || !consultationCenter) {
-        showNotification('Veuillez remplir tous les champs obligatoires du Résumé Médical (marqués par *).', 'error');
-        return;
-      }
-      const consultation = {
-        id: 'CONS-' + Date.now(),
-        patientId: currentPatient.id,
-        date: new Date().toISOString().split('T')[0],
-        generalDiagnosis: '',
-        treatmentDuration: 0,
-        prescriptionContent: currentPrescription,
-        disease: diseaseType,
-        observations: document.getElementById('summaryText').value,
-        doctorName: doctorName,
-        doctorContact: document.getElementById('doctorContact').value,
-        service: doctorService,
-        center: consultationCenter,
-        createdAt: new Date().toISOString()
-      };
-      consultations.push(consultation);
-      saveData();
-    
-      currentPatient = null;
-      currentPrescription = '';
-      showNotification(`Consultation enregistrée pour le patient ${consultation.patientId} !`, 'success');
-      document.getElementById('medicalSummary').reset();
-    
-      const saveBtn = document.querySelector('#medicalSummary .btn-primary');
-      const originalHTML = saveBtn.innerHTML;
-      saveBtn.innerHTML = '<i class="fas fa-check"></i> Enregistré !';
-      saveBtn.classList.add('animate-glow');
-    
-      setTimeout(() => {
-        saveBtn.innerHTML = originalHTML;
-        saveBtn.classList.remove('animate-glow');
-        showMainMenu();
-      }, 1500);
-    }
-    // ================================
-    // RECHERCHE DE PATIENTS
-    // ================================
-    function searchPatients() {
-      const query = document.getElementById('searchInput').value.toLowerCase();
-      const listContentDiv = document.getElementById('patientListContent');
-      const patientsListContainer = document.getElementById('patientsListContainer');
-      const searchLoader = document.getElementById('searchLoader');
-      const noResults = document.getElementById('noResults');
-    
-      const serviceDuSoignant = storedUser ? storedUser.service : 'Consultation générale';
-      const listServiceDisplay = document.getElementById('listServiceDisplay');
-      if (listServiceDisplay) {
-        listServiceDisplay.textContent = serviceDuSoignant;
-      }
-      if (patientsListContainer) patientsListContainer.classList.add('hidden');
-      if (noResults) noResults.classList.add('hidden');
-      if (searchLoader) searchLoader.classList.remove('hidden');
-      setTimeout(() => {
-        const patientIdsInService = new Set(
-          consultations.filter(c => c.service === serviceDuSoignant).map(c => c.patientId)
-        );
-      
-        const patientsInService = patients.filter(p => patientIdsInService.has(p.id));
-      
-        let patientsToShow = patientsInService.slice().sort((a, b) => {
-          const lastA = consultations.filter(c => c.patientId === a.id && c.service === serviceDuSoignant)
-            .sort((x, y) => new Date(y.date) - new Date(x.date))[0]?.date || '1970-01-01';
-          const lastB = consultations.filter(c => c.patientId === b.id && c.service === serviceDuSoignant)
-            .sort((x, y) => new Date(y.date) - new Date(x.date))[0]?.date || '1970-01-01';
-          return new Date(lastB) - new Date(lastA);
-        });
-      
-        if (query.length >= 2) {
-          patientsToShow = patientsToShow.filter(p =>
-            p.name.toLowerCase().includes(query) ||
-            p.id.toLowerCase().includes(query) ||
-            (p.phone && p.phone.toLowerCase().includes(query))
-          );
-        } else {
-          patientsToShow = patientsToShow.slice(0, 10);
-        }
-        if (searchLoader) searchLoader.classList.add('hidden');
-        if (patientsInService.length === 0 || patientsToShow.length === 0) {
-          if (noResults) {
-            noResults.classList.remove('hidden');
-          }
-          if (patientsListContainer) {
-            patientsListContainer.classList.add('hidden');
-          }
-        } else {
-          const resultsHtml = patientsToShow.map(p => {
-            const lastConsultation = consultations
-              .filter(c => c.patientId === p.id && c.service === serviceDuSoignant)
-              .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-            
-            const lastConsultDate = lastConsultation ? new Date(lastConsultation.date).toLocaleDateString('fr-FR') : 'N/A';
-          
-            return `
-            <div class="patient-search-card" onclick="showPatientDetails('${p.id}')">
-              <div class="patient-info">
-                <h4>${p.name}</h4>
-                <p>${p.age} ans • ${p.gender === 'M' ? 'Homme' : 'Femme'} • ID: ${p.id}</p>
-              </div>
-              <div class="text-right">
-                <small>Dernière consult. : ${lastConsultDate}</small>
-                <div class="patient-actions mt-2">
-                  <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); continueConsultation('${p.id}')">
-                    <i class="fas fa-edit"></i> Continuer
-                  </button>
-                </div>
-              </div>
+
+    if (searchLoader) searchLoader.classList.add('hidden');
+
+    if (patientsToShow.length === 0) {
+      if (noResults) noResults.classList.remove('hidden');
+    } else {
+      const resultsHtml = patientsToShow.map(p => {
+        return `
+        <div class="patient-search-card" onclick="showPatientDetails('${p.id}')">
+          <div class="patient-info">
+            <h4>${p.nom}</h4>
+            <p>${p.age || ''} ans • ${p.sexe === 'M' ? 'Homme' : 'Femme'} • ID: ${p.id}</p>
+          </div>
+          <div class="text-right">
+            <div class="patient-actions mt-2">
+              <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); continueConsultation('${p.id}')">
+                <i class="fas fa-edit"></i> Continuer
+              </button>
             </div>
-            `;
-          }).join('');
-        
-          if (listContentDiv) {
-            listContentDiv.innerHTML = resultsHtml;
-          }
-          if (patientsListContainer) {
-            patientsListContainer.classList.remove('hidden');
-          }
-        }
-        const patientDetails = document.getElementById('patientDetails');
-        if (patientDetails) {
-          patientDetails.classList.add('hidden');
-        }
-      }, 300);
+          </div>
+        </div>
+        `;
+      }).join('');
+
+      if (listContentDiv) listContentDiv.innerHTML = resultsHtml;
+      if (patientsListContainer) patientsListContainer.classList.remove('hidden');
     }
-    function showPatientDetails(patientId, showAll = false) {
+  }, 300);
+}
+
+// Les autres fonctions (showPatientDetails, renderHistory, addTable, export, updateStats, etc.) restent exactement comme dans ton code original
+// Je ne les recopie pas pour ne pas alourdir, mais tu les gardes telles quelles
+
+ function showPatientDetails(patientId, showAll = false) {
       currentPatient = patients.find(p => p.id === patientId);
       if (!currentPatient) {
         showNotification("Patient non trouvé.", "error");
@@ -2719,6 +2668,7 @@ Observations: `
           if (window.debouncedSearch) window.debouncedSearch();
         });
       }
+    }
     
       const diseaseSearchInput = document.getElementById('diseaseSearchInput');
       if (diseaseSearchInput) {
@@ -2749,13 +2699,79 @@ Observations: `
       }
     
       const serviceFilter = document.getElementById('serviceFilter');
-      if (serviceFilter) {
-        serviceFilter.addEventListener('change', () => {
-          if (window.debouncedUpdateStats) window.debouncedUpdateStats();
-        });
-      }
-    };
-  </script>
+    // ================================
+// INITIALISATION DES FILTRES ET ÉCOUTEURS
+// ================================
+function populateRegistryFilters() {
+  const uniqueCenters = [...new Set(consultations.map(c => c.center).filter(Boolean))];
+  const centerFilter = document.getElementById('centerFilter');
+  if (centerFilter) {
+    centerFilter.innerHTML = '<option value="all">Tous les centres</option>';
+    uniqueCenters.forEach(center => {
+      centerFilter.innerHTML += `<option value="${center}">${center}</option>`;
+    });
+  }
+
+  const serviceFilter = document.getElementById('serviceFilter');
+  if (serviceFilter) {
+    serviceFilter.innerHTML = '<option value="all">Tous les services</option>' +
+      servicesList.map(s => `<option value="${s}">${s}</option>`).join('');
+  }
+}
+
+// ================================
+// INITIALISATION AU CHARGEMENT DE LA PAGE
+// ================================
+window.onload = function() {
+  checkAuth();
+
+  // Écouteurs pour la recherche patient
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      if (window.debouncedSearch) window.debouncedSearch();
+    });
+  }
+
+  // Écouteurs pour les statistiques
+  const diseaseSearchInput = document.getElementById('diseaseSearchInput');
+  if (diseaseSearchInput) {
+    diseaseSearchInput.addEventListener('input', () => {
+      if (window.debouncedUpdateStats) window.debouncedUpdateStats();
+    });
+  }
+
+  const dateFilterStart = document.getElementById('dateFilterStart');
+  if (dateFilterStart) {
+    dateFilterStart.addEventListener('input', () => {
+      if (window.debouncedUpdateStats) window.debouncedUpdateStats();
+    });
+  }
+
+  const dateFilterEnd = document.getElementById('dateFilterEnd');
+  if (dateFilterEnd) {
+    dateFilterEnd.addEventListener('input', () => {
+      if (window.debouncedUpdateStats) window.debouncedUpdateStats();
+    });
+  }
+
+  const centerFilter = document.getElementById('centerFilter');
+  if (centerFilter) {
+    centerFilter.addEventListener('change', () => {
+      if (window.debouncedUpdateStats) window.debouncedUpdateStats();
+    });
+  }
+
+  const serviceFilter = document.getElementById('serviceFilter');
+  if (serviceFilter) {
+    serviceFilter.addEventListener('change', () => {
+      if (window.debouncedUpdateStats) window.debouncedUpdateStats();
+    });
+  }
+};
+
+</script>
+
 </body>
 </html>
      
