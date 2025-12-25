@@ -1576,15 +1576,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-// ======================== SUPABASE ========================
-// On utilise un nom différent : supabaseClient (au lieu de supabase)
+// ======================== SUPABASE (correction conflit global) ========================
+const { createClient } = supabase; // Récupère createClient depuis la variable globale du CDN
 const supabaseUrl = 'https://huhckdnnekiglhwetili.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1aGNrZG5uZWtpZ2xod2V0aWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU3MjYsImV4cCI6MjA4MjIzMTcyNn0.tyFb-ICxAZmw8ktpzb8MPjw0Bwb5-2a82CCSYgS9QEU';
 
-// On utilise la fonction globale exposée par le CDN
-const { createClient } = supabase;  // <-- Important : on récupère createClient depuis la globale
-
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);  // Nom différent !
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 let currentSupabaseUser = null;
 let storedUser = null;
@@ -1594,10 +1591,19 @@ let currentPatient = null;
 let currentPrescription = '';
 let currentSection = 'mainMenu';
 
+const servicesList = [
+  'Administration','Anatomo-pathologie','Anesthésie-Réanimation','Cardiologie','Chirurgie générale',
+  'Chirurgie pédiatrique','Chirurgie Viscérale','Consultation générale','Dermatologie','Gastroentérologie',
+  'Gynécologie','Hématologie','Infertilité','Kinésithérapie','Laboratoire','Médecine Interne',
+  'Néphrologie','Neurochirurgie','Neurologie','Odontologie/Stomatologie','Ophtalmologie',
+  'Optométrie','ORL','Pédiatrie','Pneumologie','Psychiatrie','Radiologie/Imagerie médicale',
+  'Réanimation médicale et polysalle','Rhumatologie','Sage-femme/Obstétrique','Scanner',
+  'Traumatologie','Transfusion sanguine','Urgences','Urologie','Autre'
+].sort();
+
 // ======================== NOTIFICATIONS ========================
 function showNotification(message, type = 'success') {
   const container = document.getElementById('notificationContainer');
-  if (!container) return;
   const notif = document.createElement('div');
   notif.className = `notification ${type}`;
   notif.innerHTML = `<i class="fas fa-${type==='success'?'check-circle':type==='error'?'exclamation-triangle':'info-circle'}"></i><span>${message}</span>`;
@@ -1605,7 +1611,7 @@ function showNotification(message, type = 'success') {
   setTimeout(() => { notif.style.opacity = '0'; setTimeout(() => notif.remove(), 300); }, 4000);
 }
 
-// ======================== AUTH SUPABASE ========================
+// ======================== AUTHENTIFICATION ========================
 document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('userEmail').value.trim();
@@ -1615,11 +1621,10 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 
   if (error) {
     showNotification('Erreur connexion : ' + error.message, 'error');
-    return;
+  } else {
+    currentSupabaseUser = data.user;
+    await loadUserProfileAndStart();
   }
-
-  currentSupabaseUser = data.user;
-  await loadUserProfileAndStart();
 });
 
 document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
@@ -1650,11 +1655,6 @@ async function loadUserProfileAndStart() {
     .eq('user_id', currentSupabaseUser.id)
     .single();
 
-  if (error && error.code !== 'PGRST116') {
-    showNotification('Erreur profil : ' + error.message, 'error');
-    return;
-  }
-
   storedUser = {
     role: profile?.role || 'Médecin',
     service: profile?.service || 'Consultation générale',
@@ -1673,31 +1673,151 @@ async function loadAllData() {
   consultations = c || [];
 }
 
+// ======================== APPLICATION ========================
 function startApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appContainer').classList.remove('hidden');
 
-  document.getElementById('currentUserInfo').textContent = 
-    `${storedUser.email} (${storedUser.role} - ${storedUser.service})`;
-
+  document.getElementById('currentUserInfo').textContent = `${storedUser.email} (${storedUser.role} - ${storedUser.service})`;
   document.getElementById('listServiceDisplay').textContent = storedUser.service;
   document.getElementById('currentYear').textContent = new Date().getFullYear();
 
   showMainMenu();
-  showNotification('Connexion réussie ! Bienvenue.', 'success');
+  populateServiceSelects();
+  showNotification('Bienvenue dans MediTrack Pro !', 'success');
 }
 
 function showMainMenu() {
   document.querySelectorAll('.content-area').forEach(s => s.classList.remove('active'));
   document.getElementById('mainMenu')?.classList.remove('hidden');
+  document.getElementById('navControls')?.classList.add('hidden');
+  document.getElementById('navBreadcrumb')?.classList.add('hidden');
 }
 
-// Déconnexion
-function clearAuthData() {
-  supabaseClient.auth.signOut().then(() => location.reload());
+function showSection(sectionId) {
+  document.querySelectorAll('.content-area').forEach(s => s.classList.remove('active'));
+  document.getElementById('mainMenu')?.classList.add('hidden');
+  const target = document.getElementById(sectionId);
+  if (target) target.classList.add('active');
+  currentSection = sectionId;
+
+  if (sectionId === 'prescriptionEditor' && currentPatient) loadPrescriptionTemplate();
 }
 
-// Vérification session au chargement
+// ======================== NOUVELLE CONSULTATION ========================
+document.getElementById('newPatientForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nom = document.getElementById('patientName').value.trim().toUpperCase();
+  const age = document.getElementById('patientAge').value.trim();
+  const sexe = document.getElementById('patientGender').value;
+  const telephone = document.getElementById('patientPhone').value || null;
+  const adresse = document.getElementById('patientAddress').value || null;
+  const groupe_sanguin = document.getElementById('patientBloodGroup').value.toUpperCase() || null;
+  const rhesus = document.getElementById('patientRhesus').value || null;
+  const service = document.getElementById('serviceType').value === 'Autre' 
+    ? document.getElementById('otherServiceNew').value.trim().toUpperCase() 
+    : document.getElementById('serviceType').value;
+
+  const { data, error } = await supabaseClient
+    .from('sante_patient')
+    .insert([{ nom, age, sexe, telephone, adresse, groupe_sanguin, rhesus, service }])
+    .select();
+
+  if (error) {
+    showNotification('Erreur création patient : ' + error.message, 'error');
+  } else {
+    currentPatient = data[0];
+    patients.push(currentPatient);
+    document.getElementById('currentPatientNameDisplay2').textContent = `${currentPatient.nom} (ID: ${currentPatient.id})`;
+    showNotification('Patient créé !', 'success');
+    showSection('prescriptionEditor');
+  }
+  e.target.reset();
+});
+
+// ======================== PRESCRIPTION & RÉSUMÉ ========================
+function loadPrescriptionTemplate() {
+  if (!currentPatient) return;
+  document.getElementById('prescriptionContent').value = 
+    `=== CONSULTATION ===\nPatient: ${currentPatient.nom}\nÂge: ${currentPatient.age}\nSexe: ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}\nGroupe sanguin: ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}\n\nSymptômes:\nDiagnostic:\nTraitement:\n\nObservations:`;
+
+  document.getElementById('prescriptionHeader').innerHTML = `
+    <p><strong>Patient :</strong> ${currentPatient.nom}</p>
+    <p><strong>Âge :</strong> ${currentPatient.age}</p>
+    <p><strong>Sexe :</strong> ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}</p>
+    <p><strong>Groupe sanguin :</strong> ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}</p>
+    <p><strong>Soignant :</strong> ${storedUser.email}</p>
+    <p><strong>Service :</strong> ${storedUser.service}</p>
+  `;
+}
+
+document.querySelector('#prescriptionForm button[type="submit"]')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  currentPrescription = document.getElementById('prescriptionContent').value;
+  document.getElementById('currentPatientNameDisplay3').textContent = `${currentPatient.nom} (ID: ${currentPatient.id})`;
+  document.getElementById('doctorName').value = storedUser.email;
+  document.getElementById('doctorService').value = storedUser.service;
+  showSection('medicalSummary');
+});
+
+function saveConsultation() {
+  const diseaseType = document.getElementById('diseaseType').value.trim();
+  const center = document.getElementById('consultationCenter').value.trim();
+  if (!diseaseType || !center) {
+    showNotification('Remplissez le type de maladie et le centre', 'error');
+    return;
+  }
+
+  supabaseClient.from('sante_consultation').insert([{
+    symptomes: currentPrescription,
+    diagnostic: diseaseType,
+    patient_id: currentPatient.id,
+    personnel_responsable_id: currentSupabaseUser.id,
+    center,
+    service: storedUser.service,
+    date: new Date().toISOString()
+  }]).then(({ error }) => {
+    if (error) {
+      showNotification('Erreur sauvegarde : ' + error.message, 'error');
+    } else {
+      showNotification('Consultation enregistrée !', 'success');
+      currentPatient = null;
+      showMainMenu();
+    }
+  });
+}
+
+// ======================== OUTILS ========================
+function addTable() {
+  const ta = document.getElementById('prescriptionContent');
+  if (ta) ta.value += '\n+---------------+---------------+---------------+\n|               |               |               |\n+---------------+---------------+---------------+\n';
+}
+
+function addSection() {
+  const ta = document.getElementById('prescriptionContent');
+  const title = prompt('Titre de section');
+  if (title && ta) ta.value += `\n\n=== ${title.toUpperCase()} ===\n\n`;
+}
+
+function exportToPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text(document.getElementById('prescriptionContent')?.value || '', 10, 10);
+  doc.save('prescription.pdf');
+}
+
+// ======================== SERVICES ========================
+function populateServiceSelects() {
+  ['regService', 'serviceType', 'serviceFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) {
+      sel.innerHTML = servicesList.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+  });
+}
+
+// ======================== CHECK AUTH ========================
 async function checkAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
@@ -1708,7 +1828,12 @@ async function checkAuth() {
   }
 }
 
-window.onload = () => checkAuth();
+// Déconnexion
+function clearAuthData() {
+  supabaseClient.auth.signOut().then(() => location.reload());
+}
+
+window.onload = checkAuth;
 </script>
 </body>
 </html>
