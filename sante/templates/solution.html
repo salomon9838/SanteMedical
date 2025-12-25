@@ -1576,8 +1576,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-// ======================== SUPABASE (sans conflit) ========================
-const { createClient } = supabase; // Récupère depuis la globale du CDN
+// ======================== SUPABASE (sans conflit global) ========================
+const { createClient } = supabase; // Récupère createClient depuis la globale du CDN
 const supabaseUrl = 'https://huhckdnnekiglhwetili.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1aGNrZG5uZWtpZ2xod2V0aWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU3MjYsImV4cCI6MjA4MjIzMTcyNn0.tyFb-ICxAZmw8ktpzb8MPjw0Bwb5-2a82CCSYgS9QEU';
 
@@ -1591,12 +1591,33 @@ let currentPatient = null;
 let currentPrescription = '';
 let currentSection = 'mainMenu';
 
+// Liste des services
+const servicesList = [
+  'Administration','Anatomo-pathologie','Anesthésie-Réanimation','Cardiologie','Chirurgie générale',
+  'Chirurgie pédiatrique','Chirurgie Viscérale','Consultation générale','Dermatologie','Gastroentérologie',
+  'Gynécologie','Hématologie','Infertilité','Kinésithérapie','Laboratoire','Médecine Interne',
+  'Néphrologie','Neurochirurgie','Neurologie','Odontologie/Stomatologie','Ophtalmologie',
+  'Optométrie','ORL','Pédiatrie','Pneumologie','Psychiatrie','Radiologie/Imagerie médicale',
+  'Réanimation médicale et polysalle','Rhumatologie','Sage-femme/Obstétrique','Scanner',
+  'Traumatologie','Transfusion sanguine','Urgences','Urologie','Autre'
+].sort();
+
+// ======================== FONCTION CALCUL ÂGE ========================
+function calculateAge(birthDate) {
+  if (!birthDate) return 'N/A';
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 // ======================== BASCULE INSCRIPTION / CONNEXION ========================
 function toggleAuthView(view) {
+  document.getElementById('authAlert').innerHTML = '';
   document.getElementById('registerView').classList.add('hidden');
   document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('authAlert') && (document.getElementById('authAlert').innerHTML = '');
-
   if (view === 'register') {
     document.getElementById('registerView').classList.remove('hidden');
   } else {
@@ -1609,7 +1630,7 @@ function showNotification(message, type = 'success') {
   const container = document.getElementById('notificationContainer');
   const notif = document.createElement('div');
   notif.className = `notification ${type}`;
-  notif.innerHTML = `<i class="fas fa-${type==='success'?'check-circle':type==='error'?'exclamation-triangle':'info-circle'}"></i><span>${message}</span>`;
+  notif.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i><span>${message}</span>`;
   container.appendChild(notif);
   setTimeout(() => { notif.style.opacity = '0'; setTimeout(() => notif.remove(), 300); }, 4000);
 }
@@ -1621,7 +1642,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   const password = document.getElementById('userPassword').value;
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
   if (error) {
     showNotification('Erreur connexion : ' + error.message, 'error');
   } else {
@@ -1636,21 +1656,15 @@ document.getElementById('registerForm')?.addEventListener('submit', async (e) =>
   const password = document.getElementById('regPassword').value;
   const role = document.getElementById('regRole').value;
   const serviceSelect = document.getElementById('regService');
-  const service = serviceSelect.value === 'Autre' 
-    ? document.getElementById('regOtherService').value.trim().toUpperCase() 
-    : serviceSelect.value;
+  const service = serviceSelect.value === 'Autre' ? document.getElementById('regOtherService').value.trim().toUpperCase() : serviceSelect.value;
 
   const { data, error } = await supabaseClient.auth.signUp({ email, password });
   if (error) {
     showNotification('Erreur inscription : ' + error.message, 'error');
   } else {
-    showNotification('Inscription réussie ! Confirmez votre email pour vous connecter.', 'success');
+    showNotification('Inscription réussie ! Vous pouvez maintenant vous connecter.', 'success');
     if (data.user) {
-      await supabaseClient.from('sante_utilisateur').insert({ 
-        user_id: data.user.id, 
-        role, 
-        service 
-      });
+      await supabaseClient.from('sante_utilisateur').insert({ user_id: data.user.id, role, service });
     }
     toggleAuthView('login');
   }
@@ -1658,7 +1672,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async (e) =>
 });
 
 async function loadUserProfileAndStart() {
-  const { data: profile, error } = await supabaseClient
+  const { data: profile } = await supabaseClient
     .from('sante_utilisateur')
     .select('role, service')
     .eq('user_id', currentSupabaseUser.id)
@@ -1677,6 +1691,7 @@ async function loadUserProfileAndStart() {
 async function loadAllData() {
   const { data: p } = await supabaseClient.from('sante_patient').select('*');
   patients = p || [];
+  patients.forEach(p => p.age = calculateAge(p.date_naissance));
 
   const { data: c } = await supabaseClient.from('sante_consultation').select('*');
   consultations = c || [];
@@ -1693,7 +1708,7 @@ function startApp() {
 
   showMainMenu();
   populateServiceSelects();
-  showNotification('Connexion réussie ! Bienvenue dans MediTrack Pro.', 'success');
+  showNotification('Bienvenue dans MediTrack Pro !', 'success');
 }
 
 function showMainMenu() {
@@ -1716,9 +1731,9 @@ function showSection(sectionId) {
 // ======================== NOUVELLE CONSULTATION ========================
 document.getElementById('newPatientForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-
   const nom = document.getElementById('patientName').value.trim().toUpperCase();
-  const age = document.getElementById('patientAge').value.trim();
+  const date_naissance = document.getElementById('patientBirthDate')?.value || null; // Ajoute un input id="patientBirthDate" type="date" dans ton HTML si tu veux
+  const age = date_naissance ? calculateAge(date_naissance) : document.getElementById('patientAge').value.trim();
   const sexe = document.getElementById('patientGender').value;
   const telephone = document.getElementById('patientPhone').value || null;
   const adresse = document.getElementById('patientAddress').value || null;
@@ -1730,16 +1745,17 @@ document.getElementById('newPatientForm')?.addEventListener('submit', async (e) 
 
   const { data, error } = await supabaseClient
     .from('sante_patient')
-    .insert([{ nom, age, sexe, telephone, adresse, groupe_sanguin, rhesus, service }])
+    .insert([{ nom, date_naissance, age, sexe, telephone, adresse, groupe_sanguin, rhesus, service }])
     .select();
 
   if (error) {
-    showNotification('Erreur création patient : ' + error.message, 'error');
+    showNotification('Erreur : ' + error.message, 'error');
   } else {
     currentPatient = data[0];
+    currentPatient.age = calculateAge(currentPatient.date_naissance);
     patients.push(currentPatient);
     document.getElementById('currentPatientNameDisplay2').textContent = `${currentPatient.nom} (ID: ${currentPatient.id})`;
-    showNotification('Patient créé avec succès !', 'success');
+    showNotification('Patient créé !', 'success');
     showSection('prescriptionEditor');
   }
   e.target.reset();
@@ -1748,14 +1764,22 @@ document.getElementById('newPatientForm')?.addEventListener('submit', async (e) 
 // ======================== PRESCRIPTION ========================
 function loadPrescriptionTemplate() {
   if (!currentPatient) return;
-
-  const template = `=== CONSULTATION ===\nPatient: ${currentPatient.nom}\nÂge: ${currentPatient.age}\nSexe: ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}\nGroupe sanguin: ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}\n\nSymptômes:\nDiagnostic:\nTraitement:\n\nObservations:`;
+  const template = `=== CONSULTATION ===
+Patient: ${currentPatient.nom} Âge: ${currentPatient.age || 'N/A'} Sexe: ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}
+Groupe sanguin: ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}
+Tableau:
++---------------+---------------+---------------+
+| Symptômes     | Diagnostic    | Traitement    |
++---------------+---------------+---------------+
+| ...           | ...           | ...           |
++---------------+---------------+---------------+
+Observations: `;
 
   document.getElementById('prescriptionContent').value = template;
 
   document.getElementById('prescriptionHeader').innerHTML = `
     <p><strong>Patient :</strong> ${currentPatient.nom}</p>
-    <p><strong>Âge :</strong> ${currentPatient.age}</p>
+    <p><strong>Âge :</strong> ${currentPatient.age || 'N/A'}</p>
     <p><strong>Sexe :</strong> ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}</p>
     <p><strong>Groupe sanguin :</strong> ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}</p>
     <p><strong>Soignant :</strong> ${storedUser.email}</p>
@@ -1763,7 +1787,7 @@ function loadPrescriptionTemplate() {
   `;
 }
 
-// Passer à l'étape résumé
+// Passer au résumé
 document.querySelector('#prescriptionForm button[type="submit"]')?.addEventListener('click', (e) => {
   e.preventDefault();
   currentPrescription = document.getElementById('prescriptionContent').value;
@@ -1773,13 +1797,12 @@ document.querySelector('#prescriptionForm button[type="submit"]')?.addEventListe
   showSection('medicalSummary');
 });
 
-// Sauvegarde finale
+// Sauvegarde consultation
 function saveConsultation() {
   const diseaseType = document.getElementById('diseaseType').value.trim();
   const center = document.getElementById('consultationCenter').value.trim();
-
   if (!diseaseType || !center) {
-    showNotification('Veuillez remplir le type de maladie et le centre', 'error');
+    showNotification('Remplissez maladie et centre', 'error');
     return;
   }
 
@@ -1795,15 +1818,14 @@ function saveConsultation() {
     if (error) {
       showNotification('Erreur : ' + error.message, 'error');
     } else {
-      showNotification('Consultation enregistrée avec succès !', 'success');
+      showNotification('Consultation enregistrée !', 'success');
       currentPatient = null;
-      currentPrescription = '';
       showMainMenu();
     }
   });
 }
 
-// Outils prescription
+// Outils
 function addTable() {
   const ta = document.getElementById('prescriptionContent');
   if (ta) ta.value += '\n+---------------+---------------+---------------+\n|               |               |               |\n+---------------+---------------+---------------+\n';
@@ -1824,13 +1846,9 @@ function exportToPDF() {
 
 // Services
 function populateServiceSelects() {
-  const services = ['Administration','Anatomo-pathologie','Anesthésie-Réanimation','Cardiologie','Chirurgie générale','Chirurgie pédiatrique','Chirurgie Viscérale','Consultation générale','Dermatologie','Gastroentérologie','Gynécologie','Hématologie','Infertilité','Kinésithérapie','Laboratoire','Médecine Interne','Néphrologie','Neurochirurgie','Neurologie','Odontologie/Stomatologie','Ophtalmologie','Optométrie','ORL','Pédiatrie','Pneumologie','Psychiatrie','Radiologie/Imagerie médicale','Réanimation médicale et polysalle','Rhumatologie','Sage-femme/Obstétrique','Scanner','Traumatologie','Transfusion sanguine','Urgences','Urologie','Autre'].sort();
-
   ['regService', 'serviceType', 'serviceFilter'].forEach(id => {
     const sel = document.getElementById(id);
-    if (sel) {
-      sel.innerHTML = services.map(s => `<option value="${s}">${s}</option>`).join('');
-    }
+    if (sel) sel.innerHTML = servicesList.map(s => `<option value="${s}">${s}</option>`).join('');
   });
 }
 
@@ -1839,7 +1857,7 @@ function clearAuthData() {
   supabaseClient.auth.signOut().then(() => location.reload());
 }
 
-// Vérification session au chargement
+// Vérification session
 async function checkAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
@@ -1847,7 +1865,7 @@ async function checkAuth() {
     await loadUserProfileAndStart();
   } else {
     document.getElementById('authScreen').classList.remove('hidden');
-    toggleAuthView('login'); // Par défaut sur connexion
+    toggleAuthView('login');
   }
 }
 
