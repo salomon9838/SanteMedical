@@ -1814,32 +1814,34 @@ document.querySelector('#prescriptionForm button[type="submit"]')?.addEventListe
 
 // Sauvegarde consultation
 function saveConsultation() {
-  const diseaseType = document.getElementById('diseaseType').value.trim();
+  const diseaseType = document.getElementById('diseaseType').value.trim().toUpperCase();
   const center = document.getElementById('consultationCenter').value.trim();
+
   if (!diseaseType || !center) {
-    showNotification('Remplissez maladie et centre', 'error');
+    showNotification('Veuillez remplir le type de maladie et le centre', 'error');
     return;
   }
 
   supabaseClient.from('sante_consultation').insert([{
-  symptomes: currentPrescription,
-  diagnostic: diseaseType,
-  patient_id: currentPatient.id,
-  personnel_responsable_id: '92e6c36c-bd73-4b2d-af15-b2ece0efda71',  // ← ligne corrigée
-  center,
-  service: storedUser.service,
-  date: new Date().toISOString()
-}]).then(({ error }) => {
+    symptomes: currentPrescription,
+    diagnostic: diseaseType,
+    patient_id: currentPatient.id,
+    // On supprime complètement personnel_responsable_id → plus d'erreur de foreign key
+    center: center,
+    service: storedUser.service,
+    date: new Date().toISOString().split('T')[0]  // Format date simple : YYYY-MM-DD
+  }]).then(({ error }) => {
     if (error) {
       showNotification('Erreur : ' + error.message, 'error');
+      console.error(error);
     } else {
-      showNotification('Consultation enregistrée !', 'success');
+      showNotification('Consultation enregistrée avec succès !', 'success');
       currentPatient = null;
+      currentPrescription = '';
       showMainMenu();
     }
   });
 }
-
 // Outils
 function addTable() {
   const ta = document.getElementById('prescriptionContent');
