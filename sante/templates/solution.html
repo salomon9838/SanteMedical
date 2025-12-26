@@ -1822,14 +1822,14 @@ function saveConsultation() {
   }
 
   supabaseClient.from('sante_consultation').insert([{
-    symptomes: currentPrescription,
-    diagnostic: diseaseType,
-    patient_id: currentPatient.id,
-    personnel_responsable_id: currentSupabaseUser.id,
-    center,
-    service: storedUser.service,
-    date: new Date().toISOString()
-  }]).then(({ error }) => {
+  symptomes: currentPrescription,
+  diagnostic: diseaseType,
+  patient_id: currentPatient.id,
+  personnel_responsable_id: '92e6c36c-bd73-4b2d-af15-b2ece0efda71',  // ← ligne corrigée
+  center,
+  service: storedUser.service,
+  date: new Date().toISOString()
+}]).then(({ error }) => {
     if (error) {
       showNotification('Erreur : ' + error.message, 'error');
     } else {
