@@ -1854,16 +1854,37 @@ function addTable() {
   const editor = document.getElementById('prescriptionContent');
   if (!editor) return;
   // Ajouter une ligne au dernier tableau créé
+// Fonction utilitaire : trouve le tableau contenant ou le plus proche de la sélection actuelle
+function getCurrentTable() {
+  let table = null;
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const node = range.commonAncestorContainer;
+    // Remonte jusqu'à trouver un <table> ou un élément enfant de table
+    const container = node.nodeType === 3 ? node.parentNode : node;
+    table = container.closest('table');
+  }
+  // Si pas de sélection dans un tableau, on prend le dernier tableau créé
+  if (!table) {
+    const editor = document.getElementById('prescriptionContent');
+    const tables = editor.querySelectorAll('table');
+    if (tables.length > 0) {
+      table = tables[tables.length - 1];
+    }
+  }
+  return table;
+}
+
+// Ajouter une ligne au tableau actif (celui où le curseur est, ou le dernier)
 function addRowToLastTable() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé. Créez d\'abord un tableau.', 'warning');
+  const table = getCurrentTable();
+  if (!table) {
+    showNotification('Aucun tableau trouvé. Cliquez dans un tableau ou créez-en un d\'abord.', 'warning');
     return;
   }
-  const lastTable = tables[tables.length - 1];
-  const row = lastTable.insertRow();
-  const colCount = lastTable.rows[0].cells.length; // Nombre de colonnes actuel
+  const row = table.insertRow();
+  const colCount = table.rows[0].cells.length;
   for (let i = 0; i < colCount; i++) {
     const cell = row.insertCell();
     cell.innerHTML = '<br>';
@@ -1873,60 +1894,67 @@ function addRowToLastTable() {
     cell.style.minHeight = '40px';
     cell.style.fontWeight = 'bold';
   }
-  showNotification('Ligne ajoutée !', 'success');
+  showNotification('Ligne ajoutée au tableau !', 'success');
 }
 
-// Ajouter une colonne au dernier tableau
+// Ajouter une colonne au tableau actif
 function addColumnToLastTable() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé.', 'warning');
+  const table = getCurrentTable();
+  if (!table) {
+    showNotification('Aucun tableau trouvé. Cliquez dans un tableau ou créez-en un d\'abord.', 'warning');
     return;
   }
-  const lastTable = tables[tables.length - 1];
-  // Ajouter une cellule à chaque ligne
-  for (let i = 0; i < lastTable.rows.length; i++) {
-    const cell = lastTable.rows[i].insertCell();
-    cell.innerHTML = i === 0 ? 'Nouvelle colonne' : '<br>';
+  for (let i = 0; i < table.rows.length; i++) {
+    const cell = table.rows[i].insertCell();
+    if (i === 0) {
+      cell.textContent = 'Nouvelle colonne';
+      cell.style.backgroundColor = '#eef2ff';
+    } else {
+      cell.innerHTML = '<br>';
+    }
     cell.contentEditable = 'true';
     cell.style.border = '1px solid #4361ee';
     cell.style.padding = '12px';
     cell.style.minHeight = '40px';
     cell.style.fontWeight = 'bold';
-    if (i === 0) {
-      cell.style.backgroundColor = '#eef2ff';
-      cell.style.fontWeight = 'bold';
-    }
   }
-  showNotification('Colonne ajoutée !', 'success');
+  showNotification('Colonne ajoutée au tableau !', 'success');
 }
 
-// Supprimer la dernière ligne du dernier tableau
+// Supprimer la dernière ligne du tableau actif
 function deleteLastRow() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
+  const table = getCurrentTable();
+  if (!table) {
     showNotification('Aucun tableau trouvé.', 'warning');
     return;
   }
-  const lastTable = tables[tables.length - 1];
-  if (lastTable.rows.length <= 2) { // On garde au moins en-tête + 1 ligne
-    showNotification('Impossible : vous devez garder au moins une ligne de données.', 'warning');
+  if (table.rows.length <= 2) { // Garde l'en-tête + au moins 1 ligne de données
+    showNotification('Impossible : vous devez conserver au moins une ligne de données.', 'warning');
     return;
   }
-  lastTable.deleteRow(-1); // Supprime la dernière ligne
+  table.deleteRow(-1);
   showNotification('Dernière ligne supprimée.', 'success');
 }
 
-// Supprimer la dernière colonne du dernier tableau
+// Supprimer la dernière colonne du tableau actif
 function deleteLastColumn() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
+  const table = getCurrentTable();
+  if (!table) {
     showNotification('Aucun tableau trouvé.', 'warning');
     return;
   }
+  const colCount = table.rows[0].cells.length;
+  if (colCount <= 2) {
+    showNotification('Impossible : vous devez conserver au moins 2 colonnes.', 'warning');
+    return;
+  }
+  for (let i = 0; i < table.rows.length; i++) {
+    table.rows[i].deleteCell(-1);
+  }
+  showNotification('Dernière colonne supprimée.', 'success');
+}
+// Ajouter une colonne au dernier tableau
+
   const lastTable = tables[tables.length - 1];
   const colCount = lastTable.rows[0].cells.length;
   if (colCount <= 2) {
