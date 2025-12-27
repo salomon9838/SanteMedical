@@ -1017,6 +1017,24 @@
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
+    #prescriptionContent table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+}
+
+#prescriptionContent table th,
+#prescriptionContent table td {
+  border: 2px solid #4361ee !important;
+  padding: 12px;
+  text-align: left;
+}
+
+#prescriptionContent table th {
+  background-color: #eef2ff;
+  font-weight: bold;
+}
   </style>
 </head>
 <body>
@@ -1579,6 +1597,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
 // ======================== SUPABASE (sans conflit global) ========================
@@ -1883,13 +1902,67 @@ function addSection() {
   if (title && ta) ta.value += `\n\n=== ${title.toUpperCase()} ===\n\n`;
 }
 
-function exportToPDF() {
+async function exportToPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.text(document.getElementById('prescriptionContent')?.value || '', 10, 10);
-  doc.save('prescription.pdf');
-}
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const editor = document.getElementById('prescriptionContent');
+  const header = document.getElementById('prescriptionHeader');
 
+  if (!editor) {
+    showNotification('Erreur : éditeur non trouvé', 'error');
+    return;
+  }
+
+  // Ajouter un fond blanc temporaire pour belle capture
+  const originalBg = editor.style.backgroundColor;
+  editor.style.backgroundColor = 'white';
+
+  try {
+    // Capturer le header (infos patient) + l'éditeur
+    const canvas = await html2canvas(editor, {
+      scale: 2, // Meilleure qualité
+      useCORS: true,
+      backgroundColor: '#ffffff'
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const imgWidth = 190; // Largeur en mm (A4 = 210mm, marge 10mm de chaque côté)
+    const pageHeight = 295; // Hauteur A4 en mm
+    let heightLeft = canvas.height * imgWidth / canvas.width;
+    let position = 20; // Marge haute
+
+    // Ajouter le header patient en haut du PDF (texte)
+    doc.setFontSize(12);
+    doc.text("PRESCRIPTION MÉDICALE", 105, 10, { align: 'center' });
+    if (header) {
+      const headerText = header.innerText || '';
+      const splitHeader = doc.splitTextToSize(headerText, 180);
+      doc.setFontSize(10);
+      doc.text(splitHeader, 10, 20);
+      position = 20 + splitHeader.length * 5 + 5; // Ajuster position après header
+    }
+
+    // Ajouter l'image du contenu (avec tableau visible)
+    doc.addImage(imgData, 'PNG', 10, position, imgWidth, heightLeft);
+
+    // Gestion des pages multiples si le contenu est trop long
+    heightLeft -= pageHeight - position - 10;
+    while (heightLeft > 0) {
+      doc.addPage();
+      doc.addImage(imgData, 'PNG', 10, 10, imgWidth, canvas.height * imgWidth / canvas.width);
+      heightLeft -= pageHeight - 20;
+    }
+
+    doc.save('prescription.pdf');
+    showNotification('PDF exporté avec succès (tableau inclus) !', 'success');
+  } catch (err) {
+    console.error(err);
+    showNotification('Erreur lors de l\'export PDF', 'error');
+  } finally {
+    // Restaurer le fond
+    editor.style.backgroundColor = originalBg;
+  }
+}
 // **FIX pour l'export Word : Ajout de try-catch pour debug, et assurance que docx est chargé. Si ça ne marche pas, vérifiez la console du navigateur pour erreurs.**
 function exportToXML() {
   const editor = document.getElementById('prescriptionContent');
