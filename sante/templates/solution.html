@@ -2212,6 +2212,32 @@ async function loadRegistryData(forceRefresh = false) {
 
   updateStats(); // Mise à jour immédiate
 }
+  // ======================== NAVIGATION ENTRE SECTIONS ========================
+function showSection(sectionId) {
+  // Cacher toutes les sections
+  document.querySelectorAll('.content-area').forEach(section => {
+    section.classList.remove('active');
+  });
+  
+  // Cacher le menu principal
+  document.getElementById('mainMenu')?.classList.add('hidden');
+  
+  // Afficher la section demandée
+  const target = document.getElementById(sectionId);
+  if (target) {
+    target.classList.add('active');
+  }
+  
+  // === AFFICHAGE DES BOUTONS RETOUR ET ACCUEIL ===
+  document.getElementById('navControls')?.classList.remove('hidden');
+  
+  // Cas spécial : charger le modèle de prescription si on va dans l'éditeur
+  if (sectionId === 'prescriptionEditor' && currentPatient) {
+    loadPrescriptionTemplate();
+  }
+  
+  currentSection = sectionId;
+}
 // Initialisation
 window.onload = checkAuth;
 </script>
