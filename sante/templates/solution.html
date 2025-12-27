@@ -1594,6 +1594,7 @@ let consultations = [];
 let currentPatient = null;
 let currentPrescription = '';
 let currentSection = 'mainMenu';
+let navigationHistory = []; // Historique des sections visitées
 // Liste des services
 const servicesList = [
   'Administration','Anatomo-pathologie','Anesthésie-Réanimation','Cardiologie','Chirurgie générale',
@@ -2213,29 +2214,40 @@ function showSection(sectionId) {
   document.querySelectorAll('.content-area').forEach(section => {
     section.classList.remove('active');
   });
-  
+
   // Cacher le menu principal
   document.getElementById('mainMenu')?.classList.add('hidden');
-  
+
   // Afficher la section demandée
   const target = document.getElementById(sectionId);
   if (target) {
     target.classList.add('active');
   }
-  
-  // === AFFICHAGE DES BOUTONS RETOUR ET ACCUEIL ===
+
+  // Afficher les boutons Retour et Accueil
   document.getElementById('navControls')?.classList.remove('hidden');
-  
+
+  // === AJOUT POUR HISTORIQUE : enregistrer la page actuelle avant de changer ===
+  if (currentSection && currentSection !== sectionId) {
+    navigationHistory.push(currentSection);
+  }
+
   // Cas spécial : charger le modèle de prescription si on va dans l'éditeur
   if (sectionId === 'prescriptionEditor' && currentPatient) {
     loadPrescriptionTemplate();
   }
-  
+
   currentSection = sectionId;
 }
-  function goBack() {
-  // Retour simple : on revient au menu principal
-  showMainMenu();
+ function goBack() {
+  // Si on a une page précédente dans l'historique
+  if (navigationHistory.length > 0) {
+    const previousSection = navigationHistory.pop(); // Retire la dernière page visitée
+    showSection(previousSection); // Revient à cette page
+  } else {
+    // Sinon, retour au menu principal (comme avant)
+    showMainMenu();
+  }
 }
 // Initialisation
 window.onload = checkAuth;
