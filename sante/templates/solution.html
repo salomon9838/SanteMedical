@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.min.js"></script>
+
   <style>
     :root {
       --primary: #4361ee;
@@ -1267,45 +1267,45 @@
         </div>
       </div>
       <!-- Prescription Editor -->
-      <div id="prescriptionEditor" class="content-area">
-        <div class="content-header">
-          <h2><i class="fas fa-file-medical"></i> Éditeur de Prescription</h2>
-          <p id="currentPatientNameDisplay2" class="text-gray"></p>
-        </div>
-        <div id="prescriptionHeader" class="mb-4 p-4 bg-light rounded border"></div>
-        <div class="glass p-6 rounded-xl shadow hover-lift">
-          <div class="editor-toolbar">
-            <button class="btn btn-secondary animate-pulse" onclick="addSection()">
-              <i class="fas fa-plus"></i> Ajouter Section
-            </button>
-            <button class="btn btn-secondary animate-pulse" onclick="addTable()">
-              <i class="fas fa-table"></i> Ajouter Tableau
-            </button>
-            <button class="btn btn-outline" onclick="showSection('newConsultation')">
-              <i class="fas fa-edit"></i> Modifier Patient
-            </button>
-            <button class="btn btn-primary" onclick="exportToPDF()">
-              <i class="fas fa-file-pdf"></i> Exporter en PDF
-            </button>
-            <button class="btn btn-primary" onclick="exportToWord()">
-              <i class="fas fa-file-word"></i> Exporter en Word
-            </button>
-          </div>
-        
-          <form id="prescriptionForm">
-            <textarea id="prescriptionContent" class="w-full" placeholder="Commencez à rédiger la prescription ici..."></textarea>
-            <div id="editorAlert" class="mt-3"></div>
-            <div class="flex gap-3 mt-4">
-              <button type="submit" class="btn btn-primary btn-shimmer">
-                <i class="fas fa-arrow-right"></i> Suivant : Résumé Médical
-              </button>
-              <button type="button" class="btn btn-outline" onclick="goBack()">
-                <i class="fas fa-arrow-left"></i> Retour
-              </button>
-            </div>
-          </form>
-        </div>
+   <div id="prescriptionEditor" class="content-area">
+  <div class="content-header">
+    <h2><i class="fas fa-file-medical"></i> Éditeur de Prescription</h2>
+    <p id="currentPatientNameDisplay2" class="text-gray"></p>
+  </div>
+  <div id="prescriptionHeader" class="mb-4 p-4 bg-light rounded border"></div>
+  <div class="glass p-6 rounded-xl shadow hover-lift">
+    <div class="editor-toolbar">
+      <button class="btn btn-secondary animate-pulse" onclick="addSection()">
+        <i class="fas fa-plus"></i> Ajouter Section
+      </button>
+      <button class="btn btn-secondary animate-pulse" onclick="addTable()">
+        <i class="fas fa-table"></i> Ajouter Tableau
+      </button>
+      <button class="btn btn-outline" onclick="showSection('newConsultation')">
+        <i class="fas fa-edit"></i> Modifier Patient
+      </button>
+      <button class="btn btn-primary" onclick="exportToPDF()">
+        <i class="fas fa-file-pdf"></i> Exporter en PDF
+      </button>
+      <button class="btn btn-primary" onclick="exportToXML()">
+        <i class="fas fa-file-code"></i> Exporter en XML
+      </button>
+    </div>
+  
+    <form id="prescriptionForm">
+      <div id="prescriptionContent" contenteditable="true" class="w-full form-control min-h-[350px] resize-y overflow-auto focus:border-primary focus:shadow-glow" placeholder="Commencez à rédiger la prescription ici..."></div>
+      <div id="editorAlert" class="mt-3"></div>
+      <div class="flex gap-3 mt-4">
+        <button type="submit" class="btn btn-primary btn-shimmer">
+          <i class="fas fa-arrow-right"></i> Suivant : Résumé Médical
+        </button>
+        <button type="button" class="btn btn-outline" onclick="goBack()">
+          <i class="fas fa-arrow-left"></i> Retour
+        </button>
       </div>
+    </form>
+  </div>
+</div>
       <!-- Medical Summary -->
       <div id="medicalSummary" class="content-area">
         <div class="content-header">
@@ -1579,7 +1579,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+
 <script>
 // ======================== SUPABASE (sans conflit global) ========================
 const { createClient } = supabase; // Récupère createClient depuis la globale du CDN
@@ -1763,12 +1763,7 @@ function loadPrescriptionTemplate() {
   const template = `=== CONSULTATION ===
 Patient: ${currentPatient.nom} Âge: ${currentPatient.age || 'N/A'} Sexe: ${currentPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}
 Groupe sanguin: ${currentPatient.groupe_sanguin || ''}${currentPatient.rhesus || ''}
-Tableau:
-+---------------+---------------+---------------+
-| Symptômes | Diagnostic | Traitement |
-+---------------+---------------+---------------+
-| ... | ... | ... |
-+---------------+---------------+---------------+
+
 Observations: `;
   document.getElementById('prescriptionContent').value = template;
   document.getElementById('prescriptionHeader').innerHTML = `
@@ -1822,8 +1817,64 @@ function saveConsultation() {
 }
 // Outils
 function addTable() {
-  const ta = document.getElementById('prescriptionContent');
-  if (ta) ta.value += '\n+---------------+---------------+---------------+\n| | | |\n+---------------+---------------+---------------+\n';
+  const editor = document.getElementById('prescriptionContent');
+  if (!editor) return;
+
+  // Créer un vrai tableau HTML éditable
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.margin = '20px 0';
+  table.style.border = '2px solid #4361ee';
+
+  // Ligne d'en-tête
+  const headerRow = table.insertRow();
+  ['Symptômes', 'Diagnostic', 'Traitement'].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    th.style.border = '1px solid #4361ee';
+    th.style.padding = '12px';
+    th.style.backgroundColor = '#eef2ff';
+    th.style.textAlign = 'left';
+    th.style.fontWeight = 'bold';
+    th.contentEditable = 'true';
+    headerRow.appendChild(th);
+  });
+
+  // Ligne de données vide (prête à être remplie)
+  const dataRow = table.insertRow();
+  for (let i = 0; i < 3; i++) {
+    const td = document.createElement('td');
+    td.textContent = '';
+    td.style.border = '1px solid #4361ee';
+    td.style.padding = '12px';
+    td.style.minHeight = '40px';
+    td.contentEditable = 'true';
+    dataRow.appendChild(td);
+  }
+
+  // Ajouter une ligne vide supplémentaire pour faciliter l'ajout
+  const emptyRow = table.insertRow();
+  for (let i = 0; i < 3; i++) {
+    const td = document.createElement('td');
+    td.innerHTML = '<br>';
+    td.style.border = '1px solid #4361ee';
+    td.style.padding = '12px';
+    td.contentEditable = 'true';
+    emptyRow.appendChild(td);
+  }
+
+  // Insérer le tableau dans l'éditeur
+  editor.appendChild(table);
+  editor.appendChild(document.createElement('br'));
+
+  // Placer le curseur à la fin
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 function addSection() {
@@ -1840,39 +1891,38 @@ function exportToPDF() {
 }
 
 // **FIX pour l'export Word : Ajout de try-catch pour debug, et assurance que docx est chargé. Si ça ne marche pas, vérifiez la console du navigateur pour erreurs.**
-async function exportToWord() {
-  try {
-    if (!window.docx) {
-      showNotification('Erreur : La bibliothèque docx.js n\'est pas chargée. Vérifiez votre connexion.', 'error');
-      return;
-    }
-    const content = document.getElementById('prescriptionContent').value || 'Aucun contenu';
-    const doc = new window.docx.Document({
-      sections: [{
-        properties: {},
-        children: [
-          new window.docx.Paragraph({
-            children: [new window.docx.TextRun(content)],
-          }),
-        ],
-      }],
+function exportToXML() {
+  const editor = document.getElementById('prescriptionContent');
+  let xmlContent = '<prescription>';
+  // Conversion basique du contenu en XML : encapsule le texte et convertit les tableaux en <table><row><cell>...</cell></row></table>
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = editor.innerHTML;
+  const tables = tempDiv.querySelectorAll('table');
+  tables.forEach(table => {
+    let tableXML = '<table>';
+    table.querySelectorAll('tr').forEach(row => {
+      tableXML += '<row>';
+      row.querySelectorAll('td, th').forEach(cell => {
+        tableXML += `<cell>${cell.innerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</cell>`;
+      });
+      tableXML += '</row>';
     });
-    const blob = await window.docx.Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'prescription.docx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showNotification('Export Word réussi !', 'success');
-  } catch (error) {
-    console.error('Erreur export Word:', error);
-    showNotification('Erreur lors de l\'export Word : ' + error.message, 'error');
-  }
+    tableXML += '</table>';
+    // Remplace le tableau HTML par son XML dans le contenu
+    table.outerHTML = tableXML;
+  });
+  // Ajoute le reste du contenu (texte, sections, etc.)
+  xmlContent += tempDiv.innerHTML.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  xmlContent += '</prescription>';
+  const blob = new Blob([xmlContent], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'prescription.xml';
+  a.click();
+  URL.revokeObjectURL(url);
+  showNotification('Export XML réussi !', 'success');
 }
-
 // Services
 function populateServiceSelects() {
   ['regService', 'serviceType', 'serviceFilter'].forEach(id => {
