@@ -1818,11 +1818,12 @@ function saveConsultation() {
       showNotification('Consultation enregistrée avec succès !', 'success');
       currentPatient = null;
       currentPrescription = '';
+      // NOUVEL AJOUT : Rafraîchir le registre après sauvegarde
+      loadRegistryData(true); // true pour forcer rechargement depuis Supabase
       showMainMenu();
     }
   });
 }
-
 // Outils
 function addTable() {
   const ta = document.getElementById('prescriptionContent');
@@ -2181,9 +2182,40 @@ function exportData() {
   URL.revokeObjectURL(url);
   showNotification('Export CSV réussi !', 'success');
 }
+
+// Amélioration pour rafraîchir à chaque chargement
+async function loadRegistryData(forceRefresh = false) {
+  if (forceRefresh) {
+    // Recharger depuis Supabase pour stats fraîches
+    const { data: patientsData, error: pError } = await supabaseClient.from('sante_patient').select('id');
+    const { data: consultationsData, error: cError } = await supabaseClient
+      .from('sante_consultation')
+      .select('id, diagnostic, center, service, date, patient_id');
+
+    if (pError || cError) {
+      showNotification('Erreur chargement données registre', 'error');
+      return;
+    }
+
+    allPatients = patientsData || [];
+    allConsultations = consultationsData || [];
+  }
+
+  // Centres uniques
+  const centers = [...new Set(allConsultations.map(c => c.center).filter(Boolean))].sort();
+  const centerSelect = document.getElementById('centerFilter');
+  centerSelect.innerHTML = '<option value="all">Tous les centres</option>' + centers.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Initialiser filtres pour tout inclure
+  document.getElementById('serviceFilter').value = '';  // Tous services
+  document.getElementById('centerFilter').value = 'all'; // Tous centres
+
+  updateStats(); // Mise à jour immédiate
+}
 // Initialisation
 window.onload = checkAuth;
 </script>
 </body>
 </html>
      
+
