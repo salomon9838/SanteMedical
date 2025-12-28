@@ -1850,156 +1850,121 @@ function saveConsultation() {
   });
 }
 // Outils
-function addTable() {
-  const editor = document.getElementById('prescriptionContent');
-  if (!editor) return;
-  // Ajouter une ligne au dernier tableau créé
-function addRowToLastTable() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé. Créez d\'abord un tableau.', 'warning');
-    return;
+const editor = document.getElementById('prescriptionContent');
+
+function addSection() {
+  const title = prompt('Titre de la section (ex: EXAMEN CLINIQUE)');
+  if (title) {
+    const text = `\n\n=== ${title.toUpperCase()} ===\n\n`;
+    editor.innerHTML += text;
+    placeCursorAtEnd(editor);
   }
-  const lastTable = tables[tables.length - 1];
-  const row = lastTable.insertRow();
-  const colCount = lastTable.rows[0].cells.length; // Nombre de colonnes actuel
+}
+
+function addTable() {
+  const tableHTML = `
+    <br>
+    <table style="width:100%; border-collapse:collapse; margin:20px 0; border:2px solid #4361ee;">
+      <thead>
+        <tr style="background:#eef2ff;">
+          <th contenteditable="true" style="border:2px solid #4361ee; padding:12px; font-weight:bold;">Symptômes</th>
+          <th contenteditable="true" style="border:2px solid #4361ee; padding:12px; font-weight:bold;">Diagnostic</th>
+          <th contenteditable="true" style="border:2px solid #4361ee; padding:12px; font-weight:bold;">Traitement</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+        </tr>
+        <tr>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+          <td contenteditable="true" style="border:2px solid #4361ee; padding:12px; min-height:40px; font-weight:bold;"><br></td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+  `;
+  editor.innerHTML += tableHTML;
+  placeCursorAtEnd(editor);
+  showNotification('Tableau ajouté !', 'success');
+}
+
+function getLastTable() {
+  const tables = editor.querySelectorAll('table');
+  return tables.length ? tables[tables.length - 1] : null;
+}
+
+function addRowToLastTable() {
+  const table = getLastTable();
+  if (!table) return showNotification('Aucun tableau trouvé. Créez-en un d\'abord.', 'warning');
+
+  const row = table.insertRow();
+  const colCount = table.rows[0].cells.length;
   for (let i = 0; i < colCount; i++) {
     const cell = row.insertCell();
-    cell.innerHTML = '<br>';
     cell.contentEditable = 'true';
-    cell.style.border = '1px solid #4361ee';
+    cell.style.border = '2px solid #4361ee';
     cell.style.padding = '12px';
     cell.style.minHeight = '40px';
     cell.style.fontWeight = 'bold';
+    cell.innerHTML = '<br>';
   }
-  showNotification('Ligne ajoutée !', 'success');
+  showNotification('Ligne ajoutée', 'success');
 }
 
-// Ajouter une colonne au dernier tableau
 function addColumnToLastTable() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé.', 'warning');
-    return;
-  }
-  const lastTable = tables[tables.length - 1];
-  // Ajouter une cellule à chaque ligne
-  for (let i = 0; i < lastTable.rows.length; i++) {
-    const cell = lastTable.rows[i].insertCell();
-    cell.innerHTML = i === 0 ? 'Nouvelle colonne' : '<br>';
+  const table = getLastTable();
+  if (!table) return showNotification('Aucun tableau trouvé.', 'warning');
+
+  for (let i = 0; i < table.rows.length; i++) {
+    const cell = table.rows[i].insertCell();
     cell.contentEditable = 'true';
-    cell.style.border = '1px solid #4361ee';
+    cell.style.border = '2px solid #4361ee';
     cell.style.padding = '12px';
     cell.style.minHeight = '40px';
     cell.style.fontWeight = 'bold';
     if (i === 0) {
+      cell.innerHTML = 'Nouvelle colonne';
       cell.style.backgroundColor = '#eef2ff';
-      cell.style.fontWeight = 'bold';
+    } else {
+      cell.innerHTML = '<br>';
     }
   }
-  showNotification('Colonne ajoutée !', 'success');
+  showNotification('Colonne ajoutée', 'success');
 }
 
-// Supprimer la dernière ligne du dernier tableau
 function deleteLastRow() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé.', 'warning');
-    return;
-  }
-  const lastTable = tables[tables.length - 1];
-  if (lastTable.rows.length <= 2) { // On garde au moins en-tête + 1 ligne
-    showNotification('Impossible : vous devez garder au moins une ligne de données.', 'warning');
-    return;
-  }
-  lastTable.deleteRow(-1); // Supprime la dernière ligne
-  showNotification('Dernière ligne supprimée.', 'success');
+  const table = getLastTable();
+  if (!table) return showNotification('Aucun tableau trouvé.', 'warning');
+  if (table.rows.length <= 2) return showNotification('Gardez au moins l\'en-tête + 1 ligne', 'warning');
+
+  table.deleteRow(-1);
+  showNotification('Ligne supprimée', 'success');
 }
 
-// Supprimer la dernière colonne du dernier tableau
 function deleteLastColumn() {
-  const editor = document.getElementById('prescriptionContent');
-  const tables = editor.querySelectorAll('table');
-  if (tables.length === 0) {
-    showNotification('Aucun tableau trouvé.', 'warning');
-    return;
+  const table = getLastTable();
+  if (!table) return showNotification('Aucun tableau trouvé.', 'warning');
+  if (table.rows[0].cells.length <= 2) return showNotification('Gardez au moins 2 colonnes', 'warning');
+
+  for (let i = 0; i < table.rows.length; i++) {
+    table.rows[i].deleteCell(-1);
   }
-  const lastTable = tables[tables.length - 1];
-  const colCount = lastTable.rows[0].cells.length;
-  if (colCount <= 2) {
-    showNotification('Impossible : vous devez garder au moins 2 colonnes.', 'warning');
-    return;
-  }
-  for (let i = 0; i < lastTable.rows.length; i++) {
-    lastTable.rows[i].deleteCell(-1); // Supprime la dernière cellule de chaque ligne
-  }
-  showNotification('Dernière colonne supprimée.', 'success');
+  showNotification('Colonne supprimée', 'success');
 }
 
-  // Créer un vrai tableau HTML éditable
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  table.style.margin = '20px 0';
-  table.style.border = '2px solid #4361ee';
-
-  // Ligne d'en-tête
-  const headerRow = table.insertRow();
-  ['Symptômes', 'Diagnostic', 'Traitement'].forEach(text => {
-    const th = document.createElement('th');
-    th.textContent = text;
-    th.style.border = '1px solid #4361ee';
-    th.style.padding = '12px';
-    th.style.backgroundColor = '#eef2ff';
-    th.style.textAlign = 'left';
-    th.style.fontWeight = 'bold';
-    th.contentEditable = 'true';
-    headerRow.appendChild(th);
-  });
-
-  // Ligne de données vide (prête à être remplie)
-  const dataRow = table.insertRow();
-  for (let i = 0; i < 3; i++) {
-    const td = document.createElement('td');
-    td.textContent = '';
-    td.style.border = '1px solid #4361ee';
-    td.style.padding = '12px';
-    td.style.minHeight = '40px';
-    td.contentEditable = 'true';
-    dataRow.appendChild(td);
-  }
-
-  // Ajouter une ligne vide supplémentaire pour faciliter l'ajout
-  const emptyRow = table.insertRow();
-  for (let i = 0; i < 3; i++) {
-    const td = document.createElement('td');
-    td.innerHTML = '<br>';
-    td.style.border = '1px solid #4361ee';
-    td.style.padding = '12px';
-    td.contentEditable = 'true';
-    emptyRow.appendChild(td);
-  }
-
-  // Insérer le tableau dans l'éditeur
-  editor.appendChild(table);
-  editor.appendChild(document.createElement('br'));
-
-  // Placer le curseur à la fin
+// Utilitaire : placer le curseur à la fin du contenu éditable
+function placeCursorAtEnd(el) {
   const range = document.createRange();
   const sel = window.getSelection();
-  range.selectNodeContents(editor);
+  range.selectNodeContents(el);
   range.collapse(false);
   sel.removeAllRanges();
   sel.addRange(range);
-}
-
-function addSection() {
-  const ta = document.getElementById('prescriptionContent');
-  const title = prompt('Titre de la section');
-  if (title && ta) ta.value += `\n\n=== ${title.toUpperCase()} ===\n\n`;
+  el.focus();
 }
 
 async function exportToPDF() {
@@ -2064,38 +2029,7 @@ async function exportToPDF() {
   }
 }
 // **FIX pour l'export Word : Ajout de try-catch pour debug, et assurance que docx est chargé. Si ça ne marche pas, vérifiez la console du navigateur pour erreurs.**
-function exportToXML() {
-  const editor = document.getElementById('prescriptionContent');
-  let xmlContent = '<prescription>';
-  // Conversion basique du contenu en XML : encapsule le texte et convertit les tableaux en <table><row><cell>...</cell></row></table>
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = editor.innerHTML;
-  const tables = tempDiv.querySelectorAll('table');
-  tables.forEach(table => {
-    let tableXML = '<table>';
-    table.querySelectorAll('tr').forEach(row => {
-      tableXML += '<row>';
-      row.querySelectorAll('td, th').forEach(cell => {
-        tableXML += `<cell>${cell.innerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</cell>`;
-      });
-      tableXML += '</row>';
-    });
-    tableXML += '</table>';
-    // Remplace le tableau HTML par son XML dans le contenu
-    table.outerHTML = tableXML;
-  });
-  // Ajoute le reste du contenu (texte, sections, etc.)
-  xmlContent += tempDiv.innerHTML.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  xmlContent += '</prescription>';
-  const blob = new Blob([xmlContent], { type: 'application/xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'prescription.xml';
-  a.click();
-  URL.revokeObjectURL(url);
-  showNotification('Export XML réussi !', 'success');
-}
+
 // Services
 function populateServiceSelects() {
   ['regService', 'serviceType', 'serviceFilter'].forEach(id => {
