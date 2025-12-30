@@ -1390,34 +1390,68 @@
           </form>
         </div>
       </div>
-      <!-- Old Consultation -->
-      <div id="oldConsultation" class="content-area">
+     <!-- Old Consultation - AVEC HISTORIQUE COMPLET -->
+<div id="oldConsultation" class="content-area">
   <div class="content-header">
     <h2><i class="fas fa-history"></i> Ancienne Consultation</h2>
     <p>Service : <span id="listServiceDisplay" class="font-bold text-primary"></span></p>
   </div>
 
+  <!-- Barre de recherche -->
   <div class="filters-container mb-6 animate-slideIn">
     <div class="form-group">
-      <label><i class="fas fa-search"></i> Rechercher un patient (nom, ID, téléphone)</label>
+      <label><i class="fas fa-search"></i> Rechercher un patient (nom, prénom, ID, téléphone)</label>
       <input type="text" id="searchInput" class="form-control" oninput="debouncedSearch()"
              placeholder="Entrez au moins 2 caractères..." />
     </div>
   </div>
 
+  <!-- Loader -->
   <div id="searchLoader" class="hidden text-center">
     <div class="loading-spinner"></div>
     <p class="text-gray mt-2">Recherche en cours...</p>
   </div>
 
-  <div id="patientsListContainer" class="patients-list-container">
+  <!-- Liste des patients trouvés -->
+  <div id="patientsListContainer" class="patients-list-container hidden">
     <div id="patientListContent"></div>
   </div>
 
+  <!-- Message aucun résultat -->
   <div id="noResults" class="hidden text-center py-12">
     <i class="fas fa-user-md text-5xl text-gray-300 mb-4 animate-float"></i>
     <h3 class="text-xl font-semibold text-gray-600 mb-2">Aucun patient trouvé</h3>
-    <p class="text-gray-500">Aucun patient ne correspond à votre recherche dans ce service.</p>
+    <p class="text-gray-500">Essayez avec un autre nom, prénom, ID ou téléphone.</p>
+  </div>
+
+  <!-- === DÉTAILS DU PATIENT + HISTORIQUE (apparaît après clic sur un patient) === -->
+  <div id="patientDetails" class="hidden glass p-6 rounded-xl mt-6">
+    <div class="details-grid mb-6">
+      <!-- Ces champs seront remplis dynamiquement en JS -->
+      <div class="detail-item"><label>ID Patient</label><p id="detailId">-</p></div>
+      <div class="detail-item"><label>Prénom</label><p id="detailPrenom">-</p></div>
+      <div class="detail-item"><label>Nom</label><p id="detailNom">-</p></div>
+      <div class="detail-item"><label>Âge</label><p id="detailAge">-</p></div>
+      <div class="detail-item"><label>Sexe</label><p id="detailSexe">-</p></div>
+      <div class="detail-item"><label>Téléphone</label><p id="detailPhone">-</p></div>
+      <div class="detail-item"><label>Adresse</label><p id="detailAdresse">-</p></div>
+      <div class="detail-item"><label>Groupe sanguin</label><p id="detailBlood">-</p></div>
+      <div class="detail-item"><label>Service initial</label><p id="detailService">-</p></div>
+    </div>
+
+    <!-- Historique des consultations -->
+    <h3 class="details-section-header"><i class="fas fa-history"></i> Historique des consultations</h3>
+    <div id="consultationHistory"></div>
+
+    <!-- Bouton pour continuer la consultation -->
+    <div class="flex gap-4 mt-6">
+      <button class="btn btn-primary animate-glow" onclick="continueWithPatient(currentPatient.id)">
+        <i class="fas fa-edit"></i> Continuer la consultation
+      </button>
+      <button class="btn btn-outline" onclick="backToSearchList()">
+        <i class="fas fa-arrow-left"></i> Retour à la liste
+      </button>
+    </div>
   </div>
 </div>
       <!-- Registry -->
@@ -2111,23 +2145,20 @@ async function searchPatients() {
   document.getElementById('patientsListContainer').classList.remove('hidden');
 
   // Affichage des résultats avec toutes les infos du patient (interopérabilité : récupération complète des données stockées)
-  const html = patients.map(p => `
-    <div class="patient-search-card">
+    const html = patients.map(p => `
+    <div class="patient-search-card hover-lift" onclick="showPatientDetails(${p.id})">
       <div class="patient-info">
         <h4>${p.prenom || ''} ${p.nom} (ID: ${p.id})</h4>
-        <p>Âge: ${p.age || 'N/A'} ans | Sexe: ${p.sexe === 'M' ? 'Masculin' : 'Féminin'}</p>
-        <p>Téléphone: ${p.telephone || 'N/A'} | Adresse: ${p.adresse || 'N/A'}</p>
-        <p>Groupe sanguin: ${p.groupe_sanguin || 'N/A'}${p.rhesus || ''}</p>
-        <p>Service: ${p.service || 'N/A'}</p>
+        <p>Âge: ${p.age || 'N/A'} ans • ${p.sexe === 'M' ? 'Homme' : 'Femme'}</p>
+        <p>Tél: ${p.telephone || 'N/A'} • Service: ${p.service || 'N/A'}</p>
       </div>
       <div class="patient-actions">
-        <button class="btn btn-primary" onclick="continueWithPatient(${p.id})">
-          <i class="fas fa-arrow-right"></i> Continuer la consultation
+        <button class="btn btn-primary" onclick="event.stopPropagation(); continueWithPatient(${p.id})">
+          <i class="fas fa-edit"></i> Continuer
         </button>
       </div>
     </div>
   `).join('');
-  document.getElementById('patientListContent').innerHTML = html;
 }
 
 // Continuer avec le patient : Récupère les données complètes du patient + consultations passées pour interopérabilité
@@ -2415,6 +2446,85 @@ function showSection(sectionId) {
     // Sinon, retour au menu principal (comme avant)
     showMainMenu();
   }
+}
+
+// ======================== FONCTIONS POUR L'HISTORIQUE DES PATIENTS ========================
+
+// Retour à la liste de recherche depuis les détails du patient
+function backToSearchList() {
+  document.getElementById('patientDetails').classList.add('hidden');
+  document.getElementById('patientsListContainer').classList.remove('hidden');
+  document.getElementById('noResults').classList.add('hidden');
+}
+
+// Affichage des détails + historique d'un patient (appelé quand on clique sur un patient dans la liste)
+async function showPatientDetails(patientId) {
+  // Récupérer le patient
+  const { data: patient, error: pError } = await supabaseClient
+    .from('sante_patient')
+    .select('*')
+    .eq('id', patientId)
+    .single();
+
+  if (pError || !patient) {
+    showNotification('Patient non trouvé', 'error');
+    return;
+  }
+
+  currentPatient = patient; // Important pour le bouton "Continuer"
+
+  // Remplir les infos du patient
+  document.getElementById('detailId').textContent = patient.id;
+  document.getElementById('detailPrenom').textContent = patient.prenom || 'N/A';
+  document.getElementById('detailNom').textContent = patient.nom || 'N/A';
+  document.getElementById('detailAge').textContent = patient.age ? `${patient.age} ans` : 'N/A';
+  document.getElementById('detailSexe').textContent = patient.sexe === 'M' ? 'Masculin' : 'Féminin';
+  document.getElementById('detailPhone').textContent = patient.telephone || 'N/A';
+  document.getElementById('detailAdresse').textContent = patient.adresse || 'N/A';
+  document.getElementById('detailBlood').textContent = (patient.groupe_sanguin || '') + (patient.rhesus || '');
+  document.getElementById('detailService').textContent = patient.service || 'N/A';
+
+  // Récupérer l'historique des consultations
+  const { data: consultations, error: cError } = await supabaseClient
+    .from('sante_consultation')
+    .select('date, diagnostic, symptomes, center, service')
+    .eq('patient_id', patientId)
+    .order('date', { ascending: false });
+
+  const historyDiv = document.getElementById('consultationHistory');
+  if (cError || !consultations || consultations.length === 0) {
+    historyDiv.innerHTML = `<p class="text-center text-gray-500 py-8">Aucune consultation enregistrée pour ce patient.</p>`;
+  } else {
+    let html = '';
+    consultations.forEach(c => {
+      const isOtherService = c.service !== storedUser.service;
+      html += `
+        <div class="consultation-item ${isOtherService ? 'other-service' : ''}">
+          <div class="consultation-header">
+            <span class="consultation-date"><i class="fas fa-calendar"></i> ${new Date(c.date).toLocaleDateString('fr-FR')}</span>
+            ${isOtherService ? `<span class="consultation-service">${c.service}</span>` : ''}
+          </div>
+          <div class="mb-3">
+            <strong><i class="fas fa-disease"></i> Diagnostic :</strong> ${c.diagnostic || 'N/A'}
+          </div>
+          <div class="mb-3">
+            <strong><i class="fas fa-file-prescription"></i> Prescription / Symptômes :</strong>
+            <div class="mt-2 p-3 bg-light rounded border">
+              <pre style="margin:0; white-space:pre-wrap; font-family:inherit;">${c.symptomes || 'N/A'}</pre>
+            </div>
+          </div>
+          <div class="text-sm text-gray-600">
+            Centre : ${c.center || 'N/A'} | Service : ${c.service || 'N/A'}
+          </div>
+        </div>
+      `;
+    });
+    historyDiv.innerHTML = html;
+  }
+
+  // Masquer la liste et afficher les détails
+  document.getElementById('patientsListContainer').classList.add('hidden');
+  document.getElementById('patientDetails').classList.remove('hidden');
 }
 // Initialisation
 window.onload = checkAuth;
